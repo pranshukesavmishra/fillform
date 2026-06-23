@@ -1,0 +1,114 @@
+name: fillformai
+description: India's AI Career Operating System - Web First
+
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Navigation
+  go_router: ^14.2.7
+
+  # HTTP & API
+  dio: ^5.7.0
+  retrofit: ^4.4.1
+
+  # UI & Design
+  google_fonts: ^6.2.1
+  flutter_animate: ^4.5.0
+  lottie: ^3.1.3
+  shimmer: ^3.0.0
+  cached_network_image: ^3.4.1
+  glassmorphism: ^3.0.0
+  animated_text_kit: ^4.2.3
+  flutter_staggered_animations: ^1.1.1
+  percent_indicator: ^4.2.3
+  step_progress_indicator: ^1.0.2
+  smooth_page_indicator: ^1.2.0+3
+  flutter_svg: ^2.0.10+1
+
+  # Charts & Data Viz
+  fl_chart: ^0.69.0
+  syncfusion_flutter_charts: ^27.1.56
+
+  # Forms & Input
+  flutter_form_builder: ^9.4.0
+  form_builder_validators: ^11.0.0
+
+  # File & Image
+  image_picker: ^1.1.2
+  file_picker: ^8.1.2
+  flutter_dropzone: ^4.0.1  # Web drag-and-drop
+  dotted_border: ^2.1.0
+
+  # Storage & Auth
+  flutter_secure_storage: ^9.2.2
+  shared_preferences: ^2.3.2
+  google_sign_in: ^6.2.1
+
+  # Real-time
+  web_socket_channel: ^3.0.1
+
+  # Notifications
+  firebase_core: ^3.6.0
+  firebase_messaging: ^15.1.3
+
+  # Utils
+  intl: ^0.19.0
+  timeago: ^3.7.0
+  url_launcher: ^6.3.1
+  share_plus: ^10.0.2
+  connectivity_plus: ^6.1.0
+  device_info_plus: ^11.1.0
+  package_info_plus: ^8.1.2
+  collection: ^1.18.0
+  equatable: ^2.0.5
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+
+  # Confetti & Celebrations
+  confetti: ^0.7.0
+
+  # Video (Agent sessions)
+  agora_rtc_engine: ^6.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  build_runner: ^2.4.13
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0
+  riverpod_generator: ^2.4.3
+  retrofit_generator: ^9.1.4
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/animations/
+    - assets/icons/
+    - assets/fonts/
+
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Inter-ExtraBold.ttf
+          weight: 800
