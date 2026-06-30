@@ -23,6 +23,27 @@ class AIService {
     return resp.data as Map<String, dynamic>;
   }
 
+  /// Navigates to the real portal URL with Playwright and fills the live
+  /// form using the student's Career DNA. Never submits — the backend always
+  /// stops for human review (screenshot + field-by-field report) before the
+  /// student finishes and submits on the official government portal.
+  Future<Map<String, dynamic>> autoFillForm({
+    required String portalUrl,
+    required Map<String, dynamic> careerDna,
+    required String opportunityId,
+  }) async {
+    final resp = await _dio.post(
+      '/api/v1/ai/form/auto-fill',
+      data: {
+        'portal_url': portalUrl,
+        'career_dna': careerDna,
+        'opportunity_id': opportunityId,
+      },
+      options: Options(sendTimeout: const Duration(seconds: 60), receiveTimeout: const Duration(seconds: 60)),
+    );
+    return resp.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> fillForm({
     required List<Map<String, dynamic>> formFields,
     required Map<String, dynamic> careerDna,
