@@ -210,7 +210,12 @@ async def get_opportunity(
     db: AsyncSession = Depends(get_db),
     background_tasks: BackgroundTasks = BackgroundTasks(),
 ):
-    opportunity = await db.get(Opportunity, uuid.UUID(opportunity_id))
+    try:
+        opp_uuid = uuid.UUID(opportunity_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+
+    opportunity = await db.get(Opportunity, opp_uuid)
     if not opportunity:
         raise HTTPException(status_code=404, detail="Opportunity not found")
 
@@ -388,10 +393,15 @@ async def save_opportunity(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    try:
+        opp_uuid = uuid.UUID(opportunity_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+
     existing = await db.scalar(
         select(OpportunitySave).where(
             and_(
-                OpportunitySave.opportunity_id == uuid.UUID(opportunity_id),
+                OpportunitySave.opportunity_id == opp_uuid,
                 OpportunitySave.user_id == current_user.user_id,
             )
         )
@@ -403,7 +413,7 @@ async def save_opportunity(
 
     db.add(
         OpportunitySave(
-            opportunity_id=uuid.UUID(opportunity_id),
+            opportunity_id=opp_uuid,
             user_id=current_user.user_id,
         )
     )

@@ -56,6 +56,50 @@ CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
 CREATE INDEX IF NOT EXISTS idx_users_state_district ON users(state, district);
 CREATE INDEX IF NOT EXISTS idx_users_category ON users(category);
 
+-- auth_service's User ORM model (added after this table was first created)
+-- needs password/verification/social-login tracking columns and a real
+-- "role"/"auth_provider" enum type; keep the live schema in sync with the model.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'userrole') THEN
+        CREATE TYPE userrole AS ENUM ('STUDENT', 'AGENT', 'ADMIN', 'INSTITUTION');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'authprovider') THEN
+        CREATE TYPE authprovider AS ENUM ('EMAIL', 'GOOGLE', 'PHONE', 'DIGILOCKER');
+    END IF;
+END $$;
+
+ALTER TABLE users ALTER COLUMN full_name SET DEFAULT '';
+UPDATE users SET full_name = '' WHERE full_name IS NULL;
+ALTER TABLE users ALTER COLUMN full_name SET NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS hashed_password VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider authprovider NOT NULL DEFAULT 'PHONE';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_aadhaar_verified BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS aadhaar_last4 VARCHAR(4);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) UNIQUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS digilocker_id VARCHAR(255) UNIQUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS login_count INTEGER DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'role' AND data_type <> 'USER-DEFINED') THEN
+        ALTER TABLE users ALTER COLUMN role DROP DEFAULT;
+        ALTER TABLE users ALTER COLUMN role TYPE userrole USING UPPER(role)::userrole;
+        ALTER TABLE users ALTER COLUMN role SET DEFAULT 'STUDENT';
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'profile_photo_url') THEN
+        UPDATE users SET profile_picture_url = profile_photo_url WHERE profile_picture_url IS NULL;
+        ALTER TABLE users DROP COLUMN profile_photo_url;
+    END IF;
+END $$;
+
 -- ── OTP ───────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS otp_records (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -66,6 +110,22 @@ CREATE TABLE IF NOT EXISTS otp_records (
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_otp_phone ON otp_records(phone);
+
+-- auth_service's OTPRecord ORM model (added after this table was first
+-- created) needs purpose/attempts/ip_address tracking and renamed `used`
+-- to `is_used`; keep the live schema in sync with the model.
+ALTER TABLE otp_records ADD COLUMN IF NOT EXISTS purpose VARCHAR(50) NOT NULL DEFAULT 'login';
+ALTER TABLE otp_records ADD COLUMN IF NOT EXISTS is_used BOOLEAN DEFAULT FALSE;
+ALTER TABLE otp_records ADD COLUMN IF NOT EXISTS attempts INTEGER DEFAULT 0;
+ALTER TABLE otp_records ADD COLUMN IF NOT EXISTS ip_address VARCHAR(45);
+ALTER TABLE otp_records ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'otp_records' AND column_name = 'used') THEN
+        UPDATE otp_records SET is_used = used WHERE is_used IS DISTINCT FROM used;
+        ALTER TABLE otp_records DROP COLUMN used;
+    END IF;
+END $$;
 
 -- ── Sessions ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS user_sessions (

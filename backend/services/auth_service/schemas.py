@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
+from uuid import UUID
 import re
 
 
@@ -53,7 +54,7 @@ class RefreshTokenRequest(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: str
+    id: UUID
     phone: Optional[str] = None
     email: Optional[str] = None
     full_name: str

@@ -127,7 +127,7 @@ async def send_otp(
             and_(
                 OTPRecord.phone == body.phone,
                 OTPRecord.purpose == body.purpose,
-                not OTPRecord.is_used,
+                ~OTPRecord.is_used,
             )
         )
     )
@@ -161,7 +161,7 @@ async def verify_otp(
         .where(
             and_(
                 OTPRecord.phone == body.phone,
-                not OTPRecord.is_used,
+                ~OTPRecord.is_used,
                 OTPRecord.expires_at > now,
             )
         )
