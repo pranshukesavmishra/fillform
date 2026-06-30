@@ -3,30 +3,28 @@ class OpportunityModel {
   final String title;
   final String category;
   final String? description;
-  final int? amount;
+  final double? amountMin;
+  final double? amountMax;
   final String? deadline;
   final String? issuingAuthority;
   final String? portalUrl;
-  final double? successProbability;
-  final bool isBookmarked;
-  final List<String> eligibilitySummary;
-  final String? state;
-  final String? level;
+  final bool isVerified;
+  final Map<String, dynamic> eligibilityRules;
+  final List<String> tags;
 
   const OpportunityModel({
     required this.id,
     required this.title,
     required this.category,
     this.description,
-    this.amount,
+    this.amountMin,
+    this.amountMax,
     this.deadline,
     this.issuingAuthority,
     this.portalUrl,
-    this.successProbability,
-    this.isBookmarked = false,
-    this.eligibilitySummary = const [],
-    this.state,
-    this.level,
+    this.isVerified = false,
+    this.eligibilityRules = const {},
+    this.tags = const [],
   });
 
   factory OpportunityModel.fromJson(Map<String, dynamic> json) {
@@ -34,24 +32,30 @@ class OpportunityModel {
       id: json['id']?.toString() ?? '',
       title: json['title'] as String? ?? '',
       category: json['category'] as String? ?? 'scholarship',
-      description: json['description'] as String?,
-      amount: json['amount'] as int?,
+      description: json['short_description'] as String?,
+      amountMin: (json['amount_min'] as num?)?.toDouble(),
+      amountMax: (json['amount_max'] as num?)?.toDouble(),
       deadline: json['deadline'] as String?,
       issuingAuthority: json['issuing_authority'] as String?,
       portalUrl: json['portal_url'] as String?,
-      successProbability: (json['success_probability'] as num?)?.toDouble(),
-      isBookmarked: json['is_bookmarked'] as bool? ?? false,
-      eligibilitySummary: (json['eligibility_summary'] as List<dynamic>?)?.cast<String>() ?? [],
-      state: json['state'] as String?,
-      level: json['level'] as String?,
+      isVerified: json['is_verified'] as bool? ?? false,
+      eligibilityRules: (json['eligibility_rules'] as Map<String, dynamic>?) ?? const {},
+      tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
     );
   }
 
+  String? get state {
+    final states = eligibilityRules['states_allowed'];
+    if (states is List && states.isNotEmpty) return states.first as String?;
+    return null;
+  }
+
   String get amountDisplay {
+    final amount = amountMax ?? amountMin;
     if (amount == null) return 'Variable';
-    if (amount! >= 100000) return '₹${(amount! / 100000).toStringAsFixed(1)}L/year';
-    if (amount! >= 1000) return '₹${(amount! / 1000).toStringAsFixed(0)}K/year';
-    return '₹$amount/year';
+    if (amount >= 100000) return '₹${(amount / 100000).toStringAsFixed(1)}L';
+    if (amount >= 1000) return '₹${(amount / 1000).toStringAsFixed(0)}K';
+    return '₹${amount.toStringAsFixed(0)}';
   }
 
   String get categoryLabel {

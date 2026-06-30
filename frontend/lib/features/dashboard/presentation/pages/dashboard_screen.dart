@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/glassmorphism_card.dart';
+import '../../../opportunities/presentation/providers/opportunities_provider.dart';
 import '../widgets/opportunity_mini_card.dart';
 import '../widgets/career_twin_bubble.dart';
 import '../widgets/trust_score_ring.dart';
@@ -384,37 +386,12 @@ class _CompactLayout extends StatelessWidget {
 }
 
 // ── Top Opportunities ─────────────────────────────────────────────────────────
-class _TopOpportunitiesSection extends StatelessWidget {
+class _TopOpportunitiesSection extends ConsumerWidget {
   const _TopOpportunitiesSection();
 
   @override
-  Widget build(BuildContext context) {
-    final mockOpportunities = [
-      {
-        'title': 'PM Scholarship Scheme 2024',
-        'amount': '₹36,000',
-        'deadline': '15 Nov',
-        'probability': 0.78,
-        'category': 'Scholarship',
-        'isNew': true,
-      },
-      {
-        'title': 'UP Mukhyamantri Scholarship',
-        'amount': '₹25,000',
-        'deadline': '30 Nov',
-        'probability': 0.85,
-        'category': 'State Scholarship',
-        'isNew': false,
-      },
-      {
-        'title': 'AICTE Pragati Scholarship',
-        'amount': '₹50,000',
-        'deadline': '8 Dec',
-        'probability': 0.62,
-        'category': 'Central Govt',
-        'isNew': true,
-      },
-    ];
+  Widget build(BuildContext context, WidgetRef ref) {
+    final opportunitiesAsync = ref.watch(opportunitiesProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -444,13 +421,33 @@ class _TopOpportunitiesSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.md),
-        ...mockOpportunities.asMap().entries.map(
-          (e) => Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.md),
-            child: OpportunityMiniCard(
-              data: e.value,
-              index: e.key,
-            ),
+        opportunitiesAsync.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+            child: Text('Failed to load opportunities', style: AppTextStyles.bodyMedium),
+          ),
+          data: (opportunities) => Column(
+            children: opportunities.take(3).toList().asMap().entries.map(
+              (e) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: OpportunityMiniCard(
+                  data: {
+                    'id': e.value.id,
+                    'title': e.value.title,
+                    'amount': e.value.amountDisplay,
+                    'deadline': e.value.deadline ?? 'No deadline',
+                    'probability': 0.7,
+                    'category': e.value.categoryLabel,
+                    'isNew': false,
+                  },
+                  index: e.key,
+                ),
+              ),
+            ).toList(),
           ),
         ),
       ],
