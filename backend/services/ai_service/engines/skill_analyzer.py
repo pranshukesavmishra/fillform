@@ -47,7 +47,8 @@ Respond as JSON with key "gaps" containing an array of gap objects."""
             messages=[{"role": "user", "content": prompt}],
         )
 
-        import json, re
+        import json
+        import re
         try:
             json_match = re.search(r'\{.*\}', response.content[0].text, re.DOTALL)
             if json_match:
@@ -108,7 +109,8 @@ Respond as valid JSON."""
             messages=[{"role": "user", "content": prompt}],
         )
 
-        import json, re
+        import json
+        import re
         try:
             json_match = re.search(r'\{.*\}', response.content[0].text, re.DOTALL)
             if json_match:

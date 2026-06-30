@@ -14,13 +14,11 @@ Each alert is sent only once per (document_id, days_remaining) pair to avoid spa
 """
 import logging
 from datetime import date, timedelta
-from typing import Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.shared.database import get_db
 
 logger = logging.getLogger(__name__)
 

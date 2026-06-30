@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, func, text
+from sqlalchemy import DateTime, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from backend.shared.database import Base

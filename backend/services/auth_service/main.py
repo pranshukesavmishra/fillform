@@ -6,16 +6,12 @@ import hashlib
 import hmac
 import logging
 import random
-import secrets
 import string
 from datetime import datetime, timedelta, timezone
-from typing import Optional
-import uuid
 
 import httpx
-from fastapi import FastAPI, Depends, HTTPException, status, Request, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from passlib.context import CryptContext
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +29,6 @@ from backend.services.auth_service.models import User, OTPRecord, RefreshToken, 
 from backend.services.auth_service.schemas import (
     PhoneOTPRequest, PhoneOTPVerify, GoogleOAuthRequest,
     TokenResponse, RefreshTokenRequest, UserResponse,
-    DigiLockerCallbackRequest, RegisterRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -123,7 +118,7 @@ async def send_otp(
             and_(
                 OTPRecord.phone == body.phone,
                 OTPRecord.purpose == body.purpose,
-                OTPRecord.is_used == False,
+                not OTPRecord.is_used,
             )
         )
     )
@@ -154,7 +149,7 @@ async def verify_otp(
         select(OTPRecord).where(
             and_(
                 OTPRecord.phone == body.phone,
-                OTPRecord.is_used == False,
+                not OTPRecord.is_used,
                 OTPRecord.expires_at > now,
             )
         ).order_by(OTPRecord.created_at.desc())
@@ -287,7 +282,7 @@ async def refresh_token(body: RefreshTokenRequest, db: AsyncSession = Depends(ge
         select(RefreshToken).where(
             and_(
                 RefreshToken.token_hash == token_hash,
-                RefreshToken.is_revoked == False,
+                not RefreshToken.is_revoked,
                 RefreshToken.expires_at > datetime.now(timezone.utc),
             )
         )

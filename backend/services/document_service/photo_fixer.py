@@ -6,7 +6,6 @@ Every government portal has different size/background/KB requirements.
 This module auto-corrects all of them.
 """
 import io
-import math
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
@@ -158,7 +157,6 @@ def fix_signature(image_bytes: bytes, max_kb: int = 20) -> PhotoFixResult:
         issues_fixed.append("Enhanced signature contrast")
 
         # Trim white border
-        bg = Image.new("L", img.size, 255)
         diff = ImageOps.invert(img)
         bbox = diff.getbbox()
         if bbox:

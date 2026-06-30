@@ -4,7 +4,6 @@ Predicts how likely a student is to succeed in a specific opportunity.
 Phase 1: Rule-based + proxy signals. Phase 2+: ML model trained on outcome data.
 """
 import logging
-from typing import Optional
 import math
 
 logger = logging.getLogger(__name__)
@@ -33,7 +32,6 @@ class SuccessPredictor:
         improvements = []
 
         # ── Base competition estimate ─────────────────────────────────────────
-        total_seats = opportunity_data.get("total_seats", 100)
         platform_applicants = opportunity_data.get("platform_applicants", 500)
         competition_score = opportunity_data.get("competition_score", 0.5)
         category = career_dna.get("category", "General")
@@ -68,7 +66,7 @@ class SuccessPredictor:
         else:
             reducing.append({
                 "factor": "marks",
-                "label": f"Your marks are close to minimum requirement",
+                "label": "Your marks are close to minimum requirement",
                 "impact": "-8%",
             })
 
@@ -78,7 +76,7 @@ class SuccessPredictor:
         if "ALL" not in allowed_states and state in allowed_states:
             boosting.append({
                 "factor": "geography",
-                "label": f"State-specific opportunity — less competition",
+                "label": "State-specific opportunity — less competition",
                 "impact": "+8%",
             })
 

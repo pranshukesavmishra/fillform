@@ -2,7 +2,6 @@
 FillFormAI - Document Service (port 8005)
 Handles: OCR, extraction, verification, AI Photo Fixer, signature processor
 """
-import io
 import logging
 import uuid
 from typing import Optional

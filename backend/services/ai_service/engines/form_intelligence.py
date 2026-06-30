@@ -8,7 +8,6 @@ import json
 import logging
 import re
 from typing import Optional
-from datetime import date
 
 from anthropic import AsyncAnthropic
 from backend.shared.config.settings import settings

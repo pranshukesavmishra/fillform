@@ -64,7 +64,8 @@ Return JSON with:
             messages=[{"role": "user", "content": prompt}],
         )
 
-        import json, re
+        import json
+        import re
         try:
             json_match = re.search(r'\{.*\}', response.content[0].text, re.DOTALL)
             if json_match:

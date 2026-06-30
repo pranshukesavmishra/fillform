@@ -92,8 +92,6 @@ class AppealWriter:
 
         opp_name = (opportunity_data or {}).get("title", "the scholarship/opportunity")
         opp_authority = (opportunity_data or {}).get("issuing_authority", "the concerned authority")
-        opp_scheme_type = (opportunity_data or {}).get("category", "scholarship")
-
         student_name = student_profile.get("full_name", "Applicant")
         student_reg = application_data.get("registration_number", "N/A")
         submission_date = application_data.get("submitted_at", "N/A")

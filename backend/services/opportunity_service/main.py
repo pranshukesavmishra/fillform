@@ -3,16 +3,15 @@ FillFormAI - Opportunity Service
 Handles: Opportunity CRUD, Search, Eligibility Filter, Recommendations, Scraping
 """
 import logging
-from datetime import date, datetime, timezone
+from datetime import date
 from typing import Optional
 import uuid
 
 from fastapi import FastAPI, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from sqlalchemy import select, and_, or_, func, text
+from sqlalchemy import select, and_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.dialects.postgresql import insert
 
 from backend.shared.config.settings import settings
 from backend.shared.database import get_db, init_db, close_db

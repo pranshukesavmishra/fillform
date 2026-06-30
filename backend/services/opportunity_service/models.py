@@ -1,6 +1,6 @@
 from sqlalchemy import String, Float, Boolean, Text, Integer, Date, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from backend.shared.models.base import BaseModel
 from enum import Enum
 import uuid

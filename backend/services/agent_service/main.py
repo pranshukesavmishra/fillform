@@ -5,7 +5,7 @@ Agents = verified humans who help students fill forms, go to govt offices, etc.
 """
 import logging
 import uuid
-from datetime import datetime, date
+from datetime import datetime
 from typing import Optional
 
 from fastapi import FastAPI, Depends, HTTPException

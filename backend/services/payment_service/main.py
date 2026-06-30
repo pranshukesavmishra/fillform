@@ -190,7 +190,6 @@ async def verify_payment(
             {"id": order.reference_id},
         )
     elif order.purpose == "subscription" and order.reference_id:
-        from datetime import date, timedelta
         plan = order.reference_id
         days = 365 if "yearly" in plan else 30
         await db.execute(

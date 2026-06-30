@@ -8,10 +8,8 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from typing import AsyncGenerator, Optional
-import asyncio
 
 from anthropic import AsyncAnthropic
-import redis.asyncio as aioredis
 
 from backend.shared.config.settings import settings
 from backend.shared.database import get_redis
