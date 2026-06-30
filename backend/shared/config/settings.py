@@ -62,6 +62,8 @@ class Settings(BaseSettings):
     # Payments
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
+    RAZORPAY_WEBHOOK_SECRET: str = ""
+    FCM_SERVER_KEY: str = ""
 
     # OAuth
     GOOGLE_CLIENT_ID: str = ""
