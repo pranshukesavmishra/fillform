@@ -5,9 +5,7 @@ Scrapes Pre-Matric and Post-Matric scholarship notifications for UP students.
 """
 
 import logging
-import re
 from datetime import date
-from typing import Optional
 
 import httpx
 from bs4 import BeautifulSoup

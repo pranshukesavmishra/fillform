@@ -5,9 +5,7 @@ Scrapes new exam notifications and vacancy announcements.
 """
 
 import logging
-import re
 from datetime import date, timedelta
-from typing import Optional
 
 import httpx
 from bs4 import BeautifulSoup

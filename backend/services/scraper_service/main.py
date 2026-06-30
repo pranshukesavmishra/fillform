@@ -11,16 +11,15 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, text
 
 from backend.shared.config.settings import settings
-from backend.shared.database import get_db, init_db, close_db
+from backend.shared.database import init_db, close_db
 from backend.shared.middleware.auth import get_current_admin
-from backend.services.opportunity_service.models import Opportunity, OpportunityStatus
+from backend.services.opportunity_service.models import Opportunity
 from backend.services.scraper_service.scrapers.nsp import get_nsp_opportunities
 from backend.services.scraper_service.scrapers.up_scholarship import (
     get_up_scholarship_opportunities,

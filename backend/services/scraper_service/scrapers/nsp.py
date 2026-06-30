@@ -6,9 +6,7 @@ Scrapes active scholarship schemes and their eligibility/deadline data.
 
 import logging
 import re
-from datetime import date, datetime
-from typing import Optional
-from urllib.parse import urljoin
+from datetime import date
 
 import httpx
 from bs4 import BeautifulSoup

@@ -1,4 +1,7 @@
-FROM python:3.12-slim
+# Pinned to bookworm (Debian 12): Playwright's `--with-deps` OS package list
+# doesn't yet cover trixie (Debian 13), which the floating `python:3.12-slim`
+# tag now resolves to, and fails on renamed font packages there.
+FROM python:3.12-slim-bookworm
 
 WORKDIR /app
 

@@ -202,7 +202,6 @@ STATE_OPPORTUNITIES = [
 async def get_state_opportunities() -> list[dict]:
     """Returns state government scholarship and job opportunities."""
     today = date.today()
-    year = today.year if today.month <= 10 else today.year + 1
 
     results = []
     for i, scheme in enumerate(STATE_OPPORTUNITIES):
