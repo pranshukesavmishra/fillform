@@ -27,6 +27,43 @@ from backend.services.opportunity_service.models import (
 
 logger = logging.getLogger(__name__)
 
+# Canonical education-level ordering used by opportunity eligibility_rules
+# (set by the scrapers in backend/services/scraper_service/scrapers/*.py).
+EDU_LEVELS = [
+    "5th",
+    "8th",
+    "10th",
+    "10+2",
+    "Diploma",
+    "Graduate",
+    "Postgraduate",
+    "PhD",
+]
+
+# profile_service stores users.education_level as "10th|12th|diploma|ug|pg|phd"
+# (see backend/infrastructure/docker/init.sql), a different vocabulary from
+# the one above. Normalize before comparing the two.
+PROFILE_TO_EDU_LEVEL = {
+    "10th": "10th",
+    "12th": "10+2",
+    "diploma": "Diploma",
+    "ug": "Graduate",
+    "pg": "Postgraduate",
+    "phd": "PhD",
+}
+
+
+def _normalize_edu_level(level: Optional[str]) -> Optional[str]:
+    if not level:
+        return level
+    return PROFILE_TO_EDU_LEVEL.get(level.lower(), level)
+
+
+def _edu_level_index(level: Optional[str]) -> int:
+    level = _normalize_edu_level(level)
+    return EDU_LEVELS.index(level) if level in EDU_LEVELS else -1
+
+
 app = FastAPI(title="FillFormAI - Opportunity Service", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
@@ -167,9 +204,17 @@ async def list_opportunities(
     if is_verified is not None:
         query = query.where(Opportunity.is_verified == is_verified)
     if education_level:
+        student_idx = _edu_level_index(education_level)
+        eligible_levels = [
+            lvl for i, lvl in enumerate(EDU_LEVELS) if i <= student_idx
+        ] or EDU_LEVELS
         query = query.where(
-            Opportunity.eligibility_rules["education_level_min"].astext
-            == education_level
+            or_(
+                Opportunity.eligibility_rules["education_level_min"].astext.in_(
+                    eligible_levels
+                ),
+                Opportunity.eligibility_rules["education_level_min"].astext.is_(None),
+            )
         )
     if state:
         query = query.where(
@@ -288,21 +333,11 @@ def _evaluate_eligibility(career_dna: dict, opp: Opportunity) -> EligibilityResu
             failing.append(label)
 
     # Education check
-    edu_levels = [
-        "5th",
-        "8th",
-        "10th",
-        "10+2",
-        "Diploma",
-        "Graduate",
-        "Postgraduate",
-        "PhD",
-    ]
     student_edu = career_dna.get("education_level", "")
     required_edu = rules.get("education_level_min", "")
     if required_edu and student_edu:
-        student_idx = edu_levels.index(student_edu) if student_edu in edu_levels else -1
-        req_idx = edu_levels.index(required_edu) if required_edu in edu_levels else -1
+        student_idx = _edu_level_index(student_edu)
+        req_idx = _edu_level_index(required_edu)
         check("education_level", student_idx >= req_idx, f"Education: {required_edu}+")
 
     # Marks check

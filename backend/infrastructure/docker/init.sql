@@ -515,6 +515,29 @@ VALUES
 )
 ON CONFLICT DO NOTHING;
 
+-- eligibility_summary above is human-readable only; the opportunity_service
+-- eligibility matcher and the /opportunities education_level filter both
+-- read the structured eligibility_rules JSONB, which was never populated for
+-- these seed rows -- so every demo opportunity showed up regardless of the
+-- viewer's education level. Backfill it so level-based filtering has real
+-- data to filter on.
+UPDATE opportunities SET eligibility_rules = '{"education_level_min": "10th", "categories": ["SC"], "income_ceiling_annual": 250000}'::jsonb
+    WHERE title = 'National Scholarship Portal - Post Matric Scholarship (SC)';
+UPDATE opportunities SET eligibility_rules = '{"education_level_min": "10th", "states_allowed": ["Uttar Pradesh"], "categories": ["OBC", "SC", "ST", "General"]}'::jsonb
+    WHERE title = 'UP Scholarship (Dashmottar) - Post Matric';
+UPDATE opportunities SET eligibility_rules = '{"education_level_min": "Graduate", "marks_min_percent": 60, "age_min": 18, "age_max": 25}'::jsonb
+    WHERE title = 'Prime Minister''s Scholarship Scheme (PMSS) - WARB';
+UPDATE opportunities SET eligibility_rules = '{"education_level_min": "8th", "marks_min_percent": 50, "income_ceiling_annual": 200000}'::jsonb
+    WHERE title = 'Begum Hazrat Mahal National Scholarship (Minority Girls)';
+UPDATE opportunities SET eligibility_rules = '{"education_level_min": "Graduate", "age_min": 18, "age_max": 32}'::jsonb
+    WHERE title = 'SSC Combined Graduate Level (CGL) Examination 2025';
+UPDATE opportunities SET eligibility_rules = '{"education_level_min": "8th", "categories": ["OBC", "EBC"], "income_ceiling_annual": 250000}'::jsonb
+    WHERE title = 'PM YASASVI Scholarship for OBC/EBC/DNT Students';
+UPDATE opportunities SET eligibility_rules = '{"education_level_min": "10th", "states_allowed": ["Uttar Pradesh"], "age_min": 16, "age_max": 40}'::jsonb
+    WHERE title = 'Mukhyamantri Abhyudaya Yojana - UP Free Coaching';
+UPDATE opportunities SET eligibility_rules = '{"education_level_min": "Diploma", "income_ceiling_annual": 800000}'::jsonb
+    WHERE title = 'AICTE Pragati Scholarship for Technical Education (Girls)';
+
 -- Seed a sample verified agent
 INSERT INTO agents (full_name, bio, phone, specializations, languages, districts_covered, fee_per_session, is_verified, is_active, is_online, response_time_minutes, available_session_types)
 VALUES
