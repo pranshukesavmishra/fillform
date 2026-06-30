@@ -93,10 +93,13 @@ async def _upsert_opportunity(db, opp: dict) -> bool:
 
     eligibility_rules = opp.get("eligibility_rules", {})
     states_allowed = eligibility_rules.get("states_allowed", [])
-    state_value = states_allowed[0] if states_allowed and states_allowed != ["ALL"] else None
-    eligibility_summary = opp.get("eligibility_summary") or [
-        f"{k}: {v}" for k, v in eligibility_rules.items()
-    ][:5]
+    state_value = (
+        states_allowed[0] if states_allowed and states_allowed != ["ALL"] else None
+    )
+    eligibility_summary = (
+        opp.get("eligibility_summary")
+        or [f"{k}: {v}" for k, v in eligibility_rules.items()][:5]
+    )
 
     if existing:
         existing.deadline = opp.get("deadline")
@@ -106,7 +109,9 @@ async def _upsert_opportunity(db, opp: dict) -> bool:
         existing.status = opp.get("status", "active")
         existing.last_scraped_at = now_iso
         # Keep legacy raw-SQL-dependent columns (application_service, agent_service) in sync.
-        existing.description = opp.get("short_description") or opp.get("full_description")
+        existing.description = opp.get("short_description") or opp.get(
+            "full_description"
+        )
         existing.amount = amount_int
         existing.eligibility_criteria = eligibility_rules
         existing.state = state_value
@@ -226,7 +231,11 @@ async def run_all_scrapers() -> dict:
                 if new_count:
                     result = await db.execute(
                         select(Opportunity)
-                        .where(Opportunity.source.like(f"%{opportunities[0].get('source', '')}%"))
+                        .where(
+                            Opportunity.source.like(
+                                f"%{opportunities[0].get('source', '')}%"
+                            )
+                        )
                         .order_by(Opportunity.created_at.desc())
                         .limit(new_count)
                     )
@@ -238,7 +247,9 @@ async def run_all_scrapers() -> dict:
                     "new": new_count,
                     "status": "success",
                 }
-                logger.info(f"Scraper '{name}': {len(opportunities)} found, {new_count} new")
+                logger.info(
+                    f"Scraper '{name}': {len(opportunities)} found, {new_count} new"
+                )
             except Exception as e:
                 logger.error(f"Scraper '{name}' failed: {e}")
                 summary[name] = {"status": "error", "error": str(e)}
@@ -284,7 +295,9 @@ async def trigger_single_scrape(
 ):
     """Manually trigger a single scraper by name (admin only)."""
     if source_name not in SCRAPERS:
-        raise HTTPException(404, f"Unknown scraper: {source_name}. Options: {list(SCRAPERS.keys())}")
+        raise HTTPException(
+            404, f"Unknown scraper: {source_name}. Options: {list(SCRAPERS.keys())}"
+        )
 
     from backend.shared.database import AsyncSessionLocal
 

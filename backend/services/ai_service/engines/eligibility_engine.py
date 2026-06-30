@@ -36,11 +36,11 @@ STUDENT PROFILE:
 {json.dumps(career_dna, indent=2, default=str)}
 
 OPPORTUNITY:
-Title: {opportunity.get('title', 'Unknown')}
-Category: {opportunity.get('category', 'Unknown')}
-Issuing Authority: {opportunity.get('issuing_authority', 'Unknown')}
-Eligibility Rules: {json.dumps(opportunity.get('eligibility_rules', {}), indent=2)}
-Description: {opportunity.get('short_description', '')}
+Title: {opportunity.get("title", "Unknown")}
+Category: {opportunity.get("category", "Unknown")}
+Issuing Authority: {opportunity.get("issuing_authority", "Unknown")}
+Eligibility Rules: {json.dumps(opportunity.get("eligibility_rules", {}), indent=2)}
+Description: {opportunity.get("short_description", "")}
 
 RULE ENGINE RESULT (if available):
 {json.dumps(rule_result, indent=2) if rule_result else "Not run yet"}

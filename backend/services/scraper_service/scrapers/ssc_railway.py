@@ -293,7 +293,9 @@ async def get_ssc_railway_opportunities() -> list[dict]:
         # Exams typically cycle through the year; stagger deadlines
         months_ahead = (i % 6) + 1
         opp["deadline"] = today + timedelta(days=30 * months_ahead)
-        opp["source"] = "ssc.nic.in" if "ssc" in opp["tags"] else "indianrailways.gov.in"
+        opp["source"] = (
+            "ssc.nic.in" if "ssc" in opp["tags"] else "indianrailways.gov.in"
+        )
         opp["is_verified"] = True
         opp["verification_confidence"] = 0.85
         opp["status"] = "active"

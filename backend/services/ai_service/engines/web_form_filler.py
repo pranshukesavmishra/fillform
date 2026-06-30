@@ -179,7 +179,9 @@ async def auto_fill_government_form(
             page = await context.new_page()
 
             try:
-                await page.goto(portal_url, timeout=timeout_ms, wait_until="domcontentloaded")
+                await page.goto(
+                    portal_url, timeout=timeout_ms, wait_until="domcontentloaded"
+                )
             except Exception as e:
                 result.error = f"Could not load portal: {e}"
                 await browser.close()
@@ -212,7 +214,13 @@ async def auto_fill_government_form(
                     status = "needs_review" if f.get("required") else "skipped"
                     note = "No matching data in profile" if f.get("required") else ""
                     result.steps.append(
-                        FillStep(field_id=fid, label=label, value=None, status=status, note=note)
+                        FillStep(
+                            field_id=fid,
+                            label=label,
+                            value=None,
+                            status=status,
+                            note=note,
+                        )
                     )
                     if status == "needs_review":
                         result.requires_manual_review.append(label)
@@ -220,7 +228,9 @@ async def auto_fill_government_form(
 
                 status, note = await _fill_field(page, f, value)
                 result.steps.append(
-                    FillStep(field_id=fid, label=label, value=value, status=status, note=note)
+                    FillStep(
+                        field_id=fid, label=label, value=value, status=status, note=note
+                    )
                 )
                 if status == "filled":
                     result.fields_filled += 1
