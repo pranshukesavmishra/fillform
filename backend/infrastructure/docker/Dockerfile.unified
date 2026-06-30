@@ -1,0 +1,27 @@
+# Production single-service deploy (Railway). Builds the same image as the
+# per-microservice Dockerfile.service but boots backend/infrastructure/unified_app.py,
+# which merges all 10 services' routes into one process. See unified_app.py
+# for why: a non-technical user managing 10 separate Railway services is
+# unnecessary complexity when they all share one Postgres database anyway.
+FROM python:3.12-slim-bookworm
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev libmagic1 tesseract-ocr tesseract-ocr-hin \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Playwright browser binary + OS deps, required by ai_service's web_form_filler.
+RUN playwright install --with-deps chromium
+
+COPY backend/ ./backend/
+
+ENV PYTHONPATH=/app
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+CMD ["sh", "-c", "uvicorn backend.infrastructure.unified_app:app --host 0.0.0.0 --port ${PORT:-8000}"]

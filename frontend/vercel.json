@@ -1,0 +1,8 @@
+{
+  "buildCommand": "git clone -b stable --depth 1 https://github.com/flutter/flutter.git /tmp/flutter && /tmp/flutter/bin/flutter config --enable-web && /tmp/flutter/bin/flutter pub get && /tmp/flutter/bin/flutter build web --release --dart-define=API_BASE_URL=$API_BASE_URL",
+  "outputDirectory": "build/web",
+  "installCommand": "echo 'skipping default install, Flutter handles its own deps'",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
