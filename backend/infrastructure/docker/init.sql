@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS opportunities (
 -- columns (amount, is_active, eligibility_criteria) which application_service
 -- and other services query directly with raw SQL — the scraper writes both.
 ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS short_description VARCHAR(1000);
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS full_description TEXT;
 ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS subcategory VARCHAR(100);
 ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS application_url VARCHAR(500);
 ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS open_date DATE;

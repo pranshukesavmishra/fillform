@@ -13,7 +13,7 @@ class OpportunityCategory(str, Enum):
     FELLOWSHIP = "fellowship"
     INTERNSHIP = "internship"
     EXAM = "exam"
-    SKILL_TRAINING = "skill_training"
+    SKILL_TRAINING = "skill_program"
     LOAN = "loan"
 
 
@@ -31,7 +31,14 @@ class Opportunity(BaseModel):
     short_description: Mapped[str] = mapped_column(String(1000), nullable=True)
     full_description: Mapped[str] = mapped_column(Text, nullable=True)
     category: Mapped[str] = mapped_column(
-        SAEnum(OpportunityCategory), nullable=False, index=True
+        SAEnum(
+            OpportunityCategory,
+            native_enum=False,
+            values_callable=lambda enum_cls: [e.value for e in enum_cls],
+            length=50,
+        ),
+        nullable=False,
+        index=True,
     )
     subcategory: Mapped[str] = mapped_column(String(100), nullable=True)
     issuing_authority: Mapped[str] = mapped_column(String(255), nullable=True)
@@ -50,7 +57,12 @@ class Opportunity(BaseModel):
 
     # Status
     status: Mapped[str] = mapped_column(
-        SAEnum(OpportunityStatus),
+        SAEnum(
+            OpportunityStatus,
+            native_enum=False,
+            values_callable=lambda enum_cls: [e.value for e in enum_cls],
+            length=20,
+        ),
         default=OpportunityStatus.ACTIVE,
         nullable=False,
         index=True,

@@ -10,7 +10,7 @@ import uuid
 
 from fastapi import FastAPI, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, and_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -73,6 +73,11 @@ class OpportunityResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def _coerce_id(cls, v):
+        return str(v)
 
 
 class EligibilityCheckRequest(BaseModel):

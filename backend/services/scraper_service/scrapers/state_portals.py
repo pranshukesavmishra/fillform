@@ -192,7 +192,7 @@ STATE_OPPORTUNITIES = [
         "documents_required": ["Aadhaar Card", "Resume/CV", "Education Certificates"],
         "tags": ["ncs", "jobs", "employment", "central", "free"],
         "difficulty_score": 0.2,
-        "category": "job",
+        "category": "government_job",
         "subcategory": "job_portal",
         "source": "ncs.gov.in",
     },

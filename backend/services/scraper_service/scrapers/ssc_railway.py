@@ -120,7 +120,7 @@ SSC_EXAMS = [
         ],
         "tags": ["ssc", "cgl", "central-govt", "graduation", "group-b", "group-c"],
         "difficulty_score": 0.75,
-        "category": "job",
+        "category": "government_job",
         "subcategory": "central_govt_exam",
     },
     {
@@ -145,7 +145,7 @@ SSC_EXAMS = [
         ],
         "tags": ["ssc", "chsl", "ldc", "deo", "12th-pass", "central-govt"],
         "difficulty_score": 0.6,
-        "category": "job",
+        "category": "government_job",
         "subcategory": "central_govt_exam",
     },
     {
@@ -169,7 +169,7 @@ SSC_EXAMS = [
         ],
         "tags": ["ssc", "mts", "havaldar", "10th-pass", "central-govt"],
         "difficulty_score": 0.45,
-        "category": "job",
+        "category": "government_job",
         "subcategory": "central_govt_exam",
     },
     {
@@ -194,7 +194,7 @@ SSC_EXAMS = [
         ],
         "tags": ["ssc", "cpo", "police", "si", "capf", "cisf"],
         "difficulty_score": 0.7,
-        "category": "job",
+        "category": "government_job",
         "subcategory": "central_govt_exam",
     },
     {
@@ -219,7 +219,7 @@ SSC_EXAMS = [
         ],
         "tags": ["railway", "rrb", "ntpc", "station-master", "clerk"],
         "difficulty_score": 0.65,
-        "category": "job",
+        "category": "government_job",
         "subcategory": "railway_exam",
     },
     {
@@ -243,7 +243,7 @@ SSC_EXAMS = [
         ],
         "tags": ["railway", "rrb", "group-d", "10th-pass"],
         "difficulty_score": 0.5,
-        "category": "job",
+        "category": "government_job",
         "subcategory": "railway_exam",
     },
     {
@@ -269,7 +269,7 @@ SSC_EXAMS = [
         ],
         "tags": ["railway", "rrb", "alp", "loco-pilot", "technician", "iti"],
         "difficulty_score": 0.6,
-        "category": "job",
+        "category": "government_job",
         "subcategory": "railway_exam",
     },
 ]
