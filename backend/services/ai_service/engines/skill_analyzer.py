@@ -1,4 +1,5 @@
 """Skill Gap Analyzer — identifies what skills/certs unlock more opportunities."""
+
 import logging
 from anthropic import AsyncAnthropic
 from backend.shared.config.settings import settings
@@ -19,16 +20,16 @@ class SkillGapAnalyzer:
         prompt = f"""Analyze skill gaps for this Indian student and suggest actionable improvements.
 
 Student Profile:
-- Education: {career_dna.get('education_level', 'Unknown')} in {career_dna.get('stream', 'Unknown')}
-- Current Skills: {', '.join(career_dna.get('skills', ['None listed']))}
-- State: {career_dna.get('state', 'Unknown')}
-- Career Goal: {career_goal or 'Not specified'}
-- Age: {career_dna.get('age', 'Unknown')}
+- Education: {career_dna.get("education_level", "Unknown")} in {career_dna.get("stream", "Unknown")}
+- Current Skills: {", ".join(career_dna.get("skills", ["None listed"]))}
+- State: {career_dna.get("state", "Unknown")}
+- Career Goal: {career_goal or "Not specified"}
+- Age: {career_dna.get("age", "Unknown")}
 
 Focus on:
 1. Skills/certificates that unlock government job eligibility (NIELIT, typing speed, etc.)
 2. Skills that improve scholarship applications
-3. Skills for career goal: {career_goal or 'general career advancement'}
+3. Skills for career goal: {career_goal or "general career advancement"}
 
 For each gap, provide:
 - skill_name: What to learn
@@ -49,8 +50,9 @@ Respond as JSON with key "gaps" containing an array of gap objects."""
 
         import json
         import re
+
         try:
-            json_match = re.search(r'\{.*\}', response.content[0].text, re.DOTALL)
+            json_match = re.search(r"\{.*\}", response.content[0].text, re.DOTALL)
             if json_match:
                 return json.loads(json_match.group())
         except Exception:
@@ -69,17 +71,19 @@ class RoadmapGenerator:
         timeline_months: int = 24,
         language: str = "en",
     ) -> dict:
-        lang_instruction = "" if language == "en" else f"Respond in {language} language."
+        lang_instruction = (
+            "" if language == "en" else f"Respond in {language} language."
+        )
         prompt = f"""Generate a detailed career roadmap for this Indian student.
 
 Student Profile:
-- Name: {career_dna.get('full_name', 'Student')}
-- Education: {career_dna.get('education_level', 'Unknown')} ({career_dna.get('marks_percent', 'N/A')}%)
-- Stream: {career_dna.get('stream', 'Unknown')}
-- State: {career_dna.get('state', 'Unknown')}
-- Category: {career_dna.get('category', 'Unknown')}
-- Income: ₹{career_dna.get('family_income_annual', 0):,}/year
-- Current Skills: {', '.join(career_dna.get('skills', []))}
+- Name: {career_dna.get("full_name", "Student")}
+- Education: {career_dna.get("education_level", "Unknown")} ({career_dna.get("marks_percent", "N/A")}%)
+- Stream: {career_dna.get("stream", "Unknown")}
+- State: {career_dna.get("state", "Unknown")}
+- Category: {career_dna.get("category", "Unknown")}
+- Income: ₹{career_dna.get("family_income_annual", 0):,}/year
+- Current Skills: {", ".join(career_dna.get("skills", []))}
 
 GOAL: {goal}
 TIMELINE: {timeline_months} months
@@ -111,8 +115,9 @@ Respond as valid JSON."""
 
         import json
         import re
+
         try:
-            json_match = re.search(r'\{.*\}', response.content[0].text, re.DOTALL)
+            json_match = re.search(r"\{.*\}", response.content[0].text, re.DOTALL)
             if json_match:
                 return json.loads(json_match.group())
         except Exception:

@@ -3,6 +3,7 @@ FillFormAI - AI Service
 Handles: Career Twin, Eligibility AI, Success Predictor, Form Fill Intelligence,
          Skill Gap Analysis, Roadmap Generation, SOP Builder
 """
+
 import logging
 from typing import Optional, AsyncGenerator
 import json
@@ -90,6 +91,7 @@ async def career_twin_chat(
     agent = get_career_twin()
 
     if body.stream:
+
         async def event_stream() -> AsyncGenerator[str, None]:
             async for chunk in agent.stream_response(
                 user_id=str(current_user.user_id),
@@ -123,7 +125,7 @@ class SuccessProbabilityRequest(BaseModel):
 
 class SuccessProbabilityResponse(BaseModel):
     probability: float  # 0-1
-    confidence: float   # 0-1, based on sample size
+    confidence: float  # 0-1, based on sample size
     sample_size: int
     boosting_factors: list[dict]
     reducing_factors: list[dict]
@@ -242,7 +244,9 @@ async def generate_roadmap(
 class SOPRequest(BaseModel):
     career_dna: dict
     opportunity: dict
-    tone: str = Field(default="professional", pattern="^(professional|academic|personal)$")
+    tone: str = Field(
+        default="professional", pattern="^(professional|academic|personal)$"
+    )
     word_limit: int = Field(default=500, ge=200, le=2000)
     language: str = Field(default="en")
 
@@ -264,16 +268,22 @@ async def build_sop(
 
 # ── Rejection Appeal Writer ───────────────────────────────────────────────────
 
+
 class AppealRequest(BaseModel):
     application_data: dict = Field(..., description="The rejected application record")
-    rejection_reason: Optional[str] = Field(None, description="Rejection reason as stated by authority")
+    rejection_reason: Optional[str] = Field(
+        None, description="Rejection reason as stated by authority"
+    )
     student_profile: dict = Field(..., description="Student's Career DNA")
     opportunity_data: Optional[dict] = None
     language: str = Field(default="both", pattern="^(en|hi|both)$")
 
 
 class GrievanceRequest(BaseModel):
-    issue_type: str = Field(..., description="Type of issue: payment_not_received | login_issue | status_stuck | etc.")
+    issue_type: str = Field(
+        ...,
+        description="Type of issue: payment_not_received | login_issue | status_stuck | etc.",
+    )
     description: str = Field(..., min_length=20, max_length=1000)
     student_profile: dict
     portal: str = Field(default="NSP")
@@ -337,6 +347,7 @@ async def daily_briefing(
 ):
     """Generate personalized daily career briefing for student."""
     import json as json_lib
+
     dna = json_lib.loads(career_dna)
     agent = get_career_twin()
     return await agent.generate_briefing(

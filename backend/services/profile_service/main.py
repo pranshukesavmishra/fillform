@@ -2,6 +2,7 @@
 FillFormAI - Profile Service (port 8002)
 Handles: User profile, Career DNA builder, education, family, documents vault metadata
 """
+
 import logging
 import uuid
 from datetime import date
@@ -29,6 +30,7 @@ app.add_middleware(
 
 
 # ── Models ─────────────────────────────────────────────────────────────────────
+
 
 class EducationInfo(BaseModel):
     education_level: str = Field(..., description="10th|12th|diploma|ug|pg|phd")
@@ -84,12 +86,20 @@ class DocumentRecord(BaseModel):
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+
 def _compute_profile_completeness(row) -> float:
     """Returns 0.0–1.0 completeness score."""
     fields = [
-        row.full_name, row.dob, row.gender, row.phone, row.state,
-        row.district, row.category, row.education_level,
-        row.family_income_annual, row.career_goal,
+        row.full_name,
+        row.dob,
+        row.gender,
+        row.phone,
+        row.state,
+        row.district,
+        row.category,
+        row.education_level,
+        row.family_income_annual,
+        row.career_goal,
     ]
     filled = sum(1 for f in fields if f is not None)
     return round(filled / len(fields), 2)
@@ -126,6 +136,7 @@ def _build_career_dna(row) -> dict:
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
+
 
 @app.get("/health")
 async def health():
@@ -328,13 +339,17 @@ async def get_profile_stats(
 ):
     uid = current_user.user_id
     apps_r = await db.execute(
-        text("SELECT COUNT(*) as total, SUM(CASE WHEN status='approved' THEN 1 ELSE 0 END) as approved FROM applications WHERE user_id=:uid"),
+        text(
+            "SELECT COUNT(*) as total, SUM(CASE WHEN status='approved' THEN 1 ELSE 0 END) as approved FROM applications WHERE user_id=:uid"
+        ),
         {"uid": uid},
     )
     apps = apps_r.fetchone()
 
     docs_r = await db.execute(
-        text("SELECT COUNT(*) as total FROM documents WHERE user_id=:uid AND is_expired=false"),
+        text(
+            "SELECT COUNT(*) as total FROM documents WHERE user_id=:uid AND is_expired=false"
+        ),
         {"uid": uid},
     )
     docs = docs_r.fetchone()

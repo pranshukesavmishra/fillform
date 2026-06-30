@@ -7,6 +7,7 @@ in the correct format for Indian government authorities.
 
 20-30% of soft rejections are overturnable with a proper appeal.
 """
+
 import json
 import logging
 from typing import Optional
@@ -20,15 +21,15 @@ logger = logging.getLogger(__name__)
 # Common rejection reasons and their appeal strategies
 REJECTION_STRATEGIES = {
     "income_limit_exceeded": "Challenge the income calculation — include agriculture income exclusions, request re-verification, cite family circumstances",
-    "marks_below_cutoff":    "Appeal for borderline cases — cite improvement trend, medical/family circumstances, request grace marks review",
-    "document_missing":      "Attach the missing document now, request one-time relaxation citing submission portal errors",
-    "category_mismatch":     "Provide certificate issued by correct authority, request re-evaluation",
-    "late_submission":       "Cite technical issues on government portal, attach screenshots, cite precedent of similar cases being accepted",
+    "marks_below_cutoff": "Appeal for borderline cases — cite improvement trend, medical/family circumstances, request grace marks review",
+    "document_missing": "Attach the missing document now, request one-time relaxation citing submission portal errors",
+    "category_mismatch": "Provide certificate issued by correct authority, request re-evaluation",
+    "late_submission": "Cite technical issues on government portal, attach screenshots, cite precedent of similar cases being accepted",
     "duplicate_application": "Clarify which application is genuine, request withdrawal of duplicate",
-    "age_limit":             "Verify date of birth certificate, check for age relaxation provisions for category",
-    "domicile_issue":        "Provide updated domicile certificate, cite continuous residence proof",
+    "age_limit": "Verify date of birth certificate, check for age relaxation provisions for category",
+    "domicile_issue": "Provide updated domicile certificate, cite continuous residence proof",
     "bank_details_mismatch": "Provide corrected bank details, request PFMS re-verification",
-    "general":               "Request detailed rejection reason, appeal on merit and circumstances",
+    "general": "Request detailed rejection reason, appeal on merit and circumstances",
 }
 
 APPEAL_SYSTEM_PROMPT = """You are an expert in Indian government scholarship and job application appeals.
@@ -86,12 +87,13 @@ class AppealWriter:
             }
         """
         strategy = REJECTION_STRATEGIES.get(
-            _classify_rejection(rejection_reason),
-            REJECTION_STRATEGIES["general"]
+            _classify_rejection(rejection_reason), REJECTION_STRATEGIES["general"]
         )
 
         opp_name = (opportunity_data or {}).get("title", "the scholarship/opportunity")
-        opp_authority = (opportunity_data or {}).get("issuing_authority", "the concerned authority")
+        opp_authority = (opportunity_data or {}).get(
+            "issuing_authority", "the concerned authority"
+        )
         student_name = student_profile.get("full_name", "Applicant")
         student_reg = application_data.get("registration_number", "N/A")
         submission_date = application_data.get("submitted_at", "N/A")
@@ -160,7 +162,9 @@ Write the letters NOW. Make them persuasive, specific, and professionally format
 
         except json.JSONDecodeError:
             logger.error("Claude returned non-JSON for appeal writer")
-            return _fallback_appeal(student_name, opp_name, rejection_reason, student_profile)
+            return _fallback_appeal(
+                student_name, opp_name, rejection_reason, student_profile
+            )
         except Exception as e:
             logger.error(f"Appeal writer error: {e}")
             raise
@@ -199,7 +203,12 @@ Output as JSON with keys: letter_english, letter_hindi, reference_portals (list 
         try:
             return json.loads(raw)
         except Exception:
-            return {"letter_english": raw, "letter_hindi": None, "reference_portals": [], "tips": []}
+            return {
+                "letter_english": raw,
+                "letter_hindi": None,
+                "reference_portals": [],
+                "tips": [],
+            }
 
 
 def _classify_rejection(reason: Optional[str]) -> str:
@@ -241,20 +250,23 @@ Respected Sir/Madam,
 
 I, {name}, wish to respectfully appeal against the rejection of my scholarship application for {scheme}.
 
-The stated reason for rejection was: {reason or 'not specified'}.
+The stated reason for rejection was: {reason or "not specified"}.
 
 I kindly request you to re-evaluate my application and provide an opportunity to submit any additional documents required.
 
 Yours faithfully,
 {name}
-Date: {__import__('datetime').date.today().strftime('%d/%m/%Y')}""",
+Date: {__import__("datetime").date.today().strftime("%d/%m/%Y")}""",
         "letter_hindi": None,
         "addressee": f"The Scholarship Committee, {scheme}",
         "subject_line": f"RE: Appeal Against Rejection — {scheme}",
         "enclosures": ["Application copy", "Rejection letter", "Supporting documents"],
         "key_grounds": ["Request for re-evaluation"],
         "success_probability": 0.3,
-        "tips": ["Submit appeal within 30 days of rejection", "Keep a copy of everything you send"],
+        "tips": [
+            "Submit appeal within 30 days of rejection",
+            "Keep a copy of everything you send",
+        ],
         "deadline_note": "Most schemes allow 30–60 days for appeal",
         "scheme_name": scheme,
         "generated_for": name,

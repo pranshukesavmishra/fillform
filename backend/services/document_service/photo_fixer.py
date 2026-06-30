@@ -5,6 +5,7 @@ Handles the silent killer of scholarship rejections: bad passport photos.
 Every government portal has different size/background/KB requirements.
 This module auto-corrects all of them.
 """
+
 import io
 from dataclasses import dataclass
 from enum import Enum
@@ -15,12 +16,12 @@ from PIL.Image import Resampling
 
 
 class PhotoSpec(str, Enum):
-    PASSPORT = "passport"           # 35×45mm, white bg, <50KB
-    NSP = "nsp"                     # 3.5×4.5cm, white bg, 10–50KB
+    PASSPORT = "passport"  # 35×45mm, white bg, <50KB
+    NSP = "nsp"  # 3.5×4.5cm, white bg, 10–50KB
     UP_SCHOLARSHIP = "up_scholarship"  # 2×2 inch, white bg, <20KB
-    SSC = "ssc"                     # 4×5cm, white bg, <50KB
-    UPSC = "upsc"                   # 3.5×4.5cm, white bg, 20–50KB
-    RAILWAY = "railway"             # 3.5×4.5cm, white bg, <100KB
+    SSC = "ssc"  # 4×5cm, white bg, <50KB
+    UPSC = "upsc"  # 3.5×4.5cm, white bg, 20–50KB
+    RAILWAY = "railway"  # 3.5×4.5cm, white bg, <100KB
     CUSTOM = "custom"
 
 
@@ -35,12 +36,12 @@ class PhotoSpecConfig:
 
 
 SPEC_MAP: dict[PhotoSpec, PhotoSpecConfig] = {
-    PhotoSpec.PASSPORT:       PhotoSpecConfig(413, 531, 50, 10, (255,255,255), 300),
-    PhotoSpec.NSP:            PhotoSpecConfig(413, 531, 50, 10, (255,255,255), 300),
-    PhotoSpec.UP_SCHOLARSHIP: PhotoSpecConfig(240, 240, 20,  5, (255,255,255), 200),
-    PhotoSpec.SSC:            PhotoSpecConfig(472, 590, 50, 10, (255,255,255), 300),
-    PhotoSpec.UPSC:           PhotoSpecConfig(413, 531, 50, 20, (255,255,255), 300),
-    PhotoSpec.RAILWAY:        PhotoSpecConfig(413, 531, 100, 10, (255,255,255), 300),
+    PhotoSpec.PASSPORT: PhotoSpecConfig(413, 531, 50, 10, (255, 255, 255), 300),
+    PhotoSpec.NSP: PhotoSpecConfig(413, 531, 50, 10, (255, 255, 255), 300),
+    PhotoSpec.UP_SCHOLARSHIP: PhotoSpecConfig(240, 240, 20, 5, (255, 255, 255), 200),
+    PhotoSpec.SSC: PhotoSpecConfig(472, 590, 50, 10, (255, 255, 255), 300),
+    PhotoSpec.UPSC: PhotoSpecConfig(413, 531, 50, 20, (255, 255, 255), 300),
+    PhotoSpec.RAILWAY: PhotoSpecConfig(413, 531, 100, 10, (255, 255, 255), 300),
 }
 
 
@@ -87,8 +88,12 @@ def fix_photo(
         if img.size != Image.open(io.BytesIO(image_bytes)).size:
             issues_fixed.append("Fixed camera rotation")
 
-        cfg = SPEC_MAP.get(spec) if spec != PhotoSpec.CUSTOM else PhotoSpecConfig(
-            custom_width, custom_height, custom_max_kb, 5, (255,255,255), 300
+        cfg = (
+            SPEC_MAP.get(spec)
+            if spec != PhotoSpec.CUSTOM
+            else PhotoSpecConfig(
+                custom_width, custom_height, custom_max_kb, 5, (255, 255, 255), 300
+            )
         )
 
         # ── 1. Smart face crop ──────────────────────────────────────────────
@@ -202,7 +207,10 @@ def fix_signature(image_bytes: bytes, max_kb: int = 20) -> PhotoFixResult:
 
 # ── Private helpers ──────────────────────────────────────────────────────────
 
-def _smart_face_crop(img: Image.Image, cfg: PhotoSpecConfig, issues: list) -> Image.Image:
+
+def _smart_face_crop(
+    img: Image.Image, cfg: PhotoSpecConfig, issues: list
+) -> Image.Image:
     """
     Crops image to face-region proportions.
     Uses a heuristic center-top crop (face in upper 60% of frame) when
@@ -243,14 +251,18 @@ def _replace_background(img: Image.Image, bg_color: tuple, issues: list) -> Imag
 
     # Sample background color from 4 corners
     corner_colors = [
-        data[0, 0][:3], data[w-1, 0][:3],
-        data[0, h-1][:3], data[w-1, h-1][:3],
+        data[0, 0][:3],
+        data[w - 1, 0][:3],
+        data[0, h - 1][:3],
+        data[w - 1, h - 1][:3],
     ]
     avg_bg = tuple(sum(c[i] for c in corner_colors) // 4 for i in range(3))
     tolerance = 40
 
     def _is_bg(r, g, b):
-        return all(abs(int(c) - int(avg_bg[i])) < tolerance for i, c in enumerate([r,g,b]))
+        return all(
+            abs(int(c) - int(avg_bg[i])) < tolerance for i, c in enumerate([r, g, b])
+        )
 
     # Replace near-background pixels with white
     changed = False

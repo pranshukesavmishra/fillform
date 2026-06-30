@@ -3,6 +3,7 @@ FillFormAI - Agent Service (port 8006)
 Handles: Human agent marketplace, session booking, ratings, agent chat
 Agents = verified humans who help students fill forms, go to govt offices, etc.
 """
+
 import logging
 import uuid
 from datetime import datetime
@@ -31,9 +32,12 @@ app.add_middleware(
 
 # ── Models ─────────────────────────────────────────────────────────────────────
 
+
 class BookSessionRequest(BaseModel):
     agent_id: str
-    session_type: str = Field(..., description="video_call|in_person|phone_call|document_pickup")
+    session_type: str = Field(
+        ..., description="video_call|in_person|phone_call|document_pickup"
+    )
     scheduled_at: datetime
     duration_minutes: int = Field(default=30, ge=15, le=120)
     issue_description: str = Field(..., min_length=10, max_length=1000)
@@ -58,6 +62,7 @@ class AgentFilterRequest(BaseModel):
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
+
 
 @app.get("/health")
 async def health():
@@ -172,7 +177,9 @@ async def book_session(
 ):
     """Book a session with a human agent."""
     agent_r = await db.execute(
-        text("SELECT id, full_name, fee_per_session FROM agents WHERE id = :id AND is_active = true AND is_verified = true"),
+        text(
+            "SELECT id, full_name, fee_per_session FROM agents WHERE id = :id AND is_active = true AND is_verified = true"
+        ),
         {"id": body.agent_id},
     )
     agent = agent_r.fetchone()
@@ -210,7 +217,9 @@ async def book_session(
     )
     await db.commit()
 
-    logger.info(f"Session {session_id} booked: student {current_user.user_id} → agent {body.agent_id}")
+    logger.info(
+        f"Session {session_id} booked: student {current_user.user_id} → agent {body.agent_id}"
+    )
     return {
         "session_id": str(session_id),
         "agent_name": agent.full_name,
@@ -261,7 +270,9 @@ async def rate_session(
     current_user=Depends(get_current_user),
 ):
     session_r = await db.execute(
-        text("SELECT agent_id FROM agent_sessions WHERE id = :id AND student_id = :uid AND status = 'completed'"),
+        text(
+            "SELECT agent_id FROM agent_sessions WHERE id = :id AND student_id = :uid AND status = 'completed'"
+        ),
         {"id": session_id, "uid": current_user.user_id},
     )
     session = session_r.fetchone()
@@ -319,7 +330,10 @@ async def list_specializations():
             {"id": "govt_job", "label": "Government Job Applications"},
             {"id": "ssc", "label": "SSC / Railway Exams"},
             {"id": "pfms", "label": "PFMS Payment Issues"},
-            {"id": "document_renewal", "label": "Document Renewal (Income/Caste/Domicile)"},
+            {
+                "id": "document_renewal",
+                "label": "Document Renewal (Income/Caste/Domicile)",
+            },
             {"id": "college_admission", "label": "College Admission Forms"},
             {"id": "bank_account", "label": "Bank Account / PM Jan Dhan"},
             {"id": "aadhaar", "label": "Aadhaar Update / Correction"},

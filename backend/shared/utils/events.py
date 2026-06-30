@@ -1,4 +1,5 @@
 """Kafka event producer/consumer for inter-service communication."""
+
 import json
 import logging
 from dataclasses import dataclass, asdict

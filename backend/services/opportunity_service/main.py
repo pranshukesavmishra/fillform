@@ -2,6 +2,7 @@
 FillFormAI - Opportunity Service
 Handles: Opportunity CRUD, Search, Eligibility Filter, Recommendations, Scraping
 """
+
 import logging
 from datetime import date
 from typing import Optional
@@ -17,8 +18,11 @@ from backend.shared.config.settings import settings
 from backend.shared.database import get_db, init_db, close_db
 from backend.shared.middleware.auth import get_current_user, get_current_admin
 from backend.services.opportunity_service.models import (
-    Opportunity, OpportunityView, OpportunitySave,
-    OpportunityCategory, OpportunityStatus,
+    Opportunity,
+    OpportunityView,
+    OpportunitySave,
+    OpportunityCategory,
+    OpportunityStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -124,7 +128,9 @@ async def list_opportunities(
     tags: Optional[str] = Query(None, description="Comma-separated tags"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    sort_by: str = Query("deadline", pattern="^(deadline|amount|created_at|difficulty_score)$"),
+    sort_by: str = Query(
+        "deadline", pattern="^(deadline|amount|created_at|difficulty_score)$"
+    ),
     sort_dir: str = Query("asc", pattern="^(asc|desc)$"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -157,7 +163,8 @@ async def list_opportunities(
         query = query.where(Opportunity.is_verified == is_verified)
     if education_level:
         query = query.where(
-            Opportunity.eligibility_rules["education_level_min"].astext == education_level
+            Opportunity.eligibility_rules["education_level_min"].astext
+            == education_level
         )
     if state:
         query = query.where(
@@ -210,20 +217,24 @@ async def get_opportunity(
 
 async def _record_view(db: AsyncSession, opp_id: str, user_id: str):
     try:
-        db.add(OpportunityView(
-            opportunity_id=uuid.UUID(opp_id),
-            user_id=uuid.UUID(user_id),
-        ))
+        db.add(
+            OpportunityView(
+                opportunity_id=uuid.UUID(opp_id),
+                user_id=uuid.UUID(user_id),
+            )
+        )
         opp = await db.get(Opportunity, uuid.UUID(opp_id))
         if opp:
-            opp.platform_applicants = (opp.platform_applicants or 0)
+            opp.platform_applicants = opp.platform_applicants or 0
         await db.commit()
     except Exception:
         pass
 
 
 # ── Eligibility Check ─────────────────────────────────────────────────────────
-@app.post("/api/v1/opportunities/check-eligibility", response_model=list[EligibilityResult])
+@app.post(
+    "/api/v1/opportunities/check-eligibility", response_model=list[EligibilityResult]
+)
 async def check_eligibility(
     body: EligibilityCheckRequest,
     current_user=Depends(get_current_user),
@@ -233,9 +244,7 @@ async def check_eligibility(
     Fast eligibility check against structured rules.
     AI-enhanced eligibility uses the AI service for complex cases.
     """
-    query = select(Opportunity).where(
-        Opportunity.status == OpportunityStatus.ACTIVE
-    )
+    query = select(Opportunity).where(Opportunity.status == OpportunityStatus.ACTIVE)
     if body.opportunity_ids:
         ids = [uuid.UUID(i) for i in body.opportunity_ids]
         query = query.where(Opportunity.id.in_(ids))
@@ -269,7 +278,16 @@ def _evaluate_eligibility(career_dna: dict, opp: Opportunity) -> EligibilityResu
             failing.append(label)
 
     # Education check
-    edu_levels = ["5th", "8th", "10th", "10+2", "Diploma", "Graduate", "Postgraduate", "PhD"]
+    edu_levels = [
+        "5th",
+        "8th",
+        "10th",
+        "10+2",
+        "Diploma",
+        "Graduate",
+        "Postgraduate",
+        "PhD",
+    ]
     student_edu = career_dna.get("education_level", "")
     required_edu = rules.get("education_level_min", "")
     if required_edu and student_edu:
@@ -282,7 +300,12 @@ def _evaluate_eligibility(career_dna: dict, opp: Opportunity) -> EligibilityResu
     req_marks = rules.get("marks_min_percent")
     if req_marks is not None and student_marks is not None:
         is_borderline = req_marks - student_marks <= 5 and student_marks < req_marks
-        check("marks_percent", student_marks >= req_marks, f"Marks ≥ {req_marks}%", is_borderline)
+        check(
+            "marks_percent",
+            student_marks >= req_marks,
+            f"Marks ≥ {req_marks}%",
+            is_borderline,
+        )
 
     # Category
     categories = rules.get("categories", [])
@@ -299,8 +322,15 @@ def _evaluate_eligibility(career_dna: dict, opp: Opportunity) -> EligibilityResu
     income_ceiling = rules.get("income_ceiling_annual")
     student_income = career_dna.get("family_income_annual")
     if income_ceiling and student_income is not None:
-        is_borderline = student_income > income_ceiling and student_income <= income_ceiling * 1.05
-        check("family_income_annual", student_income <= income_ceiling, f"Income ≤ ₹{income_ceiling:,}", is_borderline)
+        is_borderline = (
+            student_income > income_ceiling and student_income <= income_ceiling * 1.05
+        )
+        check(
+            "family_income_annual",
+            student_income <= income_ceiling,
+            f"Income ≤ ₹{income_ceiling:,}",
+            is_borderline,
+        )
 
     # Age
     age_min = rules.get("age_min")
@@ -308,7 +338,11 @@ def _evaluate_eligibility(career_dna: dict, opp: Opportunity) -> EligibilityResu
     student_age = career_dna.get("age")
     if student_age is not None:
         if age_min and age_max:
-            check("age", age_min <= student_age <= age_max, f"Age {age_min}-{age_max} years")
+            check(
+                "age",
+                age_min <= student_age <= age_max,
+                f"Age {age_min}-{age_max} years",
+            )
         elif age_min:
             check("age", student_age >= age_min, f"Age ≥ {age_min} years")
         elif age_max:
@@ -326,7 +360,9 @@ def _evaluate_eligibility(career_dna: dict, opp: Opportunity) -> EligibilityResu
             failing.append(f"State: {student_state} not in eligible states")
 
     is_eligible = len(failing) == 0 and len(missing) == 0
-    confidence = 0.95 if (not missing and not borderline) else 0.7 if not failing else 0.3
+    confidence = (
+        0.95 if (not missing and not borderline) else 0.7 if not failing else 0.3
+    )
 
     return EligibilityResult(
         opportunity_id=str(opp.id),
@@ -360,10 +396,12 @@ async def save_opportunity(
         await db.commit()
         return {"saved": False}
 
-    db.add(OpportunitySave(
-        opportunity_id=uuid.UUID(opportunity_id),
-        user_id=current_user.user_id,
-    ))
+    db.add(
+        OpportunitySave(
+            opportunity_id=uuid.UUID(opportunity_id),
+            user_id=current_user.user_id,
+        )
+    )
     await db.commit()
     return {"saved": True}
 
@@ -387,7 +425,9 @@ async def create_opportunity(
 async def opportunity_stats(db: AsyncSession = Depends(get_db)):
     total = await db.scalar(select(func.count(Opportunity.id)))
     active = await db.scalar(
-        select(func.count(Opportunity.id)).where(Opportunity.status == OpportunityStatus.ACTIVE)
+        select(func.count(Opportunity.id)).where(
+            Opportunity.status == OpportunityStatus.ACTIVE
+        )
     )
     by_category = await db.execute(
         select(Opportunity.category, func.count(Opportunity.id))

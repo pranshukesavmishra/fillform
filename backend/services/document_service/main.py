@@ -2,6 +2,7 @@
 FillFormAI - Document Service (port 8005)
 Handles: OCR, extraction, verification, AI Photo Fixer, signature processor
 """
+
 import logging
 import uuid
 from typing import Optional
@@ -16,7 +17,10 @@ from pydantic import BaseModel
 from backend.shared.config.settings import settings
 from backend.shared.middleware.auth import get_current_user
 from backend.services.document_service.photo_fixer import (
-    PhotoSpec, fix_photo, fix_signature, PhotoFixResult
+    PhotoSpec,
+    fix_photo,
+    fix_signature,
+    PhotoFixResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -60,6 +64,7 @@ async def health():
 
 
 # ── AI Photo Fixer ────────────────────────────────────────────────────────────
+
 
 @app.post("/api/v1/documents/fix-photo", response_model=PhotoFixResponse)
 async def fix_passport_photo(
@@ -172,11 +177,47 @@ async def get_photo_specs():
     """Returns all supported government portal photo specifications."""
     return {
         "specs": [
-            {"id": "nsp", "name": "NSP / National Scholarship Portal", "size": "3.5×4.5cm", "max_kb": 50, "bg": "White"},
-            {"id": "passport", "name": "Passport / Visa Photo", "size": "35×45mm", "max_kb": 50, "bg": "White"},
-            {"id": "up_scholarship", "name": "UP Scholarship Portal", "size": "2×2 inch", "max_kb": 20, "bg": "White"},
-            {"id": "ssc", "name": "SSC / IBPS / Bank Exams", "size": "4×5cm", "max_kb": 50, "bg": "White"},
-            {"id": "upsc", "name": "UPSC / IAS Exam", "size": "3.5×4.5cm", "max_kb": 50, "bg": "White"},
-            {"id": "railway", "name": "Railway / RRB Exams", "size": "3.5×4.5cm", "max_kb": 100, "bg": "White"},
+            {
+                "id": "nsp",
+                "name": "NSP / National Scholarship Portal",
+                "size": "3.5×4.5cm",
+                "max_kb": 50,
+                "bg": "White",
+            },
+            {
+                "id": "passport",
+                "name": "Passport / Visa Photo",
+                "size": "35×45mm",
+                "max_kb": 50,
+                "bg": "White",
+            },
+            {
+                "id": "up_scholarship",
+                "name": "UP Scholarship Portal",
+                "size": "2×2 inch",
+                "max_kb": 20,
+                "bg": "White",
+            },
+            {
+                "id": "ssc",
+                "name": "SSC / IBPS / Bank Exams",
+                "size": "4×5cm",
+                "max_kb": 50,
+                "bg": "White",
+            },
+            {
+                "id": "upsc",
+                "name": "UPSC / IAS Exam",
+                "size": "3.5×4.5cm",
+                "max_kb": 50,
+                "bg": "White",
+            },
+            {
+                "id": "railway",
+                "name": "Railway / RRB Exams",
+                "size": "3.5×4.5cm",
+                "max_kb": 100,
+                "bg": "White",
+            },
         ]
     }

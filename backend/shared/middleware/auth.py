@@ -23,6 +23,7 @@ class TokenPayload:
 
 def create_access_token(user_id: str, role: str = "student") -> str:
     from datetime import timedelta
+
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=settings.JWT_ACCESS_EXPIRE_MINUTES
     )
@@ -40,6 +41,7 @@ def create_access_token(user_id: str, role: str = "student") -> str:
 
 def create_refresh_token(user_id: str) -> str:
     from datetime import timedelta
+
     expire = datetime.now(timezone.utc) + timedelta(
         days=settings.JWT_REFRESH_EXPIRE_DAYS
     )

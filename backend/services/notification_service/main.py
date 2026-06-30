@@ -3,6 +3,7 @@ FillFormAI - Notification Service (port 8007)
 Handles: Push (FCM), WhatsApp, SMS (Twilio), Email (SendGrid), in-app
 Document expiry scheduler runs here daily at 9 AM IST.
 """
+
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -16,7 +17,9 @@ from pydantic import BaseModel, Field
 from backend.shared.config.settings import settings
 from backend.shared.database import get_db
 from backend.shared.middleware.auth import get_current_user
-from backend.services.notification_service.expiry_scheduler import setup_expiry_scheduler
+from backend.services.notification_service.expiry_scheduler import (
+    setup_expiry_scheduler,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +31,9 @@ async def lifespan(app: FastAPI):
     global _scheduler
     _scheduler = setup_expiry_scheduler(app, get_db)
     _scheduler.start()
-    logger.info("Notification service started — expiry scheduler active (daily 9 AM IST)")
+    logger.info(
+        "Notification service started — expiry scheduler active (daily 9 AM IST)"
+    )
     yield
     if _scheduler:
         _scheduler.shutdown(wait=False)
@@ -49,6 +54,7 @@ app.add_middleware(
 
 
 # ── Pydantic Models ────────────────────────────────────────────────────────────
+
 
 class PushNotificationRequest(BaseModel):
     user_id: str
@@ -84,6 +90,7 @@ class ManualExpiryCheckRequest(BaseModel):
 
 # ── Health ─────────────────────────────────────────────────────────────────────
 
+
 @app.get("/health")
 async def health():
     scheduler_running = _scheduler.running if _scheduler else False
@@ -101,6 +108,7 @@ async def health():
 
 
 # ── Push Notifications ─────────────────────────────────────────────────────────
+
 
 @app.post("/api/v1/notifications/push")
 async def send_push_notification(
@@ -121,7 +129,11 @@ async def send_push_notification(
             },
             json={
                 "to": "/topics/" + body.user_id,  # Topic-based; device token in prod
-                "notification": {"title": body.title, "body": body.body, "image": body.image_url},
+                "notification": {
+                    "title": body.title,
+                    "body": body.body,
+                    "image": body.image_url,
+                },
                 "data": body.data,
                 "priority": "high",
             },
@@ -136,6 +148,7 @@ async def send_push_notification(
 
 
 # ── WhatsApp ───────────────────────────────────────────────────────────────────
+
 
 @app.post("/api/v1/notifications/whatsapp")
 async def send_whatsapp(
@@ -162,8 +175,15 @@ async def send_whatsapp(
                 "name": body.template_name,
                 "language": {"code": "en_IN"},
                 "components": [
-                    {"type": "body", "parameters": [{"type": "text", "text": p} for p in body.template_params]}
-                ] if body.template_params else [],
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {"type": "text", "text": p} for p in body.template_params
+                        ],
+                    }
+                ]
+                if body.template_params
+                else [],
             },
         }
     else:
@@ -190,6 +210,7 @@ async def send_whatsapp(
 
 
 # ── SMS (Twilio) ───────────────────────────────────────────────────────────────
+
 
 @app.post("/api/v1/notifications/sms")
 async def send_sms(
@@ -220,6 +241,7 @@ async def send_sms(
 
 
 # ── Document Expiry Alerts (manual trigger for testing) ───────────────────────
+
 
 @app.post("/api/v1/notifications/expiry-check")
 async def trigger_expiry_check(
@@ -252,16 +274,25 @@ async def trigger_expiry_check(
                 {"t": target},
             )
             rows = r.fetchall()
-            results.append({
-                "days_remaining": days,
-                "documents_expiring": [
-                    {"doc_type": row.document_type, "expiry": str(row.expires_at),
-                     "name": row.full_name, "phone": row.phone}
-                    for row in rows
-                ],
-            })
+            results.append(
+                {
+                    "days_remaining": days,
+                    "documents_expiring": [
+                        {
+                            "doc_type": row.document_type,
+                            "expiry": str(row.expires_at),
+                            "name": row.full_name,
+                            "phone": row.phone,
+                        }
+                        for row in rows
+                    ],
+                }
+            )
         return {"dry_run": True, "would_alert": results}
 
-    from backend.services.notification_service.expiry_scheduler import check_and_send_expiry_alerts
+    from backend.services.notification_service.expiry_scheduler import (
+        check_and_send_expiry_alerts,
+    )
+
     result = await check_and_send_expiry_alerts(db)
     return {"dry_run": False, "alerts_sent": result}

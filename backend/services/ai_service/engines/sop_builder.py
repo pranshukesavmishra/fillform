@@ -1,4 +1,5 @@
 """SOP / Personal Statement Builder."""
+
 from anthropic import AsyncAnthropic
 from backend.shared.config.settings import settings
 
@@ -20,20 +21,20 @@ class SOPBuilder:
         prompt = f"""Write a compelling Statement of Purpose/Personal Statement for this scholarship/opportunity application.
 
 Student Background:
-- Name: {career_dna.get('full_name', 'Student')}
-- Education: {career_dna.get('education_level')} in {career_dna.get('stream')}
-- Marks: {career_dna.get('marks_percent')}%
-- Institution: {career_dna.get('institution_name', 'Not specified')}
-- State/District: {career_dna.get('state')}, {career_dna.get('district')}
-- Family Background: Income ₹{career_dna.get('family_income_annual', 0):,}/year
-- Category: {career_dna.get('category')}
-- Career Goals: {', '.join(career_dna.get('career_goals', ['Not specified']))}
-- Achievements: {', '.join(career_dna.get('achievements', ['None listed']))}
-- Challenges Overcome: {career_dna.get('background_challenges', 'Not specified')}
+- Name: {career_dna.get("full_name", "Student")}
+- Education: {career_dna.get("education_level")} in {career_dna.get("stream")}
+- Marks: {career_dna.get("marks_percent")}%
+- Institution: {career_dna.get("institution_name", "Not specified")}
+- State/District: {career_dna.get("state")}, {career_dna.get("district")}
+- Family Background: Income ₹{career_dna.get("family_income_annual", 0):,}/year
+- Category: {career_dna.get("category")}
+- Career Goals: {", ".join(career_dna.get("career_goals", ["Not specified"]))}
+- Achievements: {", ".join(career_dna.get("achievements", ["None listed"]))}
+- Challenges Overcome: {career_dna.get("background_challenges", "Not specified")}
 
-Opportunity: {opportunity.get('title')}
-Type: {opportunity.get('category')}
-Issuing Authority: {opportunity.get('issuing_authority', 'Government of India')}
+Opportunity: {opportunity.get("title")}
+Type: {opportunity.get("category")}
+Issuing Authority: {opportunity.get("issuing_authority", "Government of India")}
 
 Requirements:
 - Word limit: approximately {word_limit} words
@@ -66,10 +67,14 @@ Return JSON with:
 
         import json
         import re
+
         try:
-            json_match = re.search(r'\{.*\}', response.content[0].text, re.DOTALL)
+            json_match = re.search(r"\{.*\}", response.content[0].text, re.DOTALL)
             if json_match:
                 return json.loads(json_match.group())
         except Exception:
             pass
-        return {"sop_text": response.content[0].text, "word_count": len(response.content[0].text.split())}
+        return {
+            "sop_text": response.content[0].text,
+            "word_count": len(response.content[0].text.split()),
+        }

@@ -2,6 +2,7 @@
 FillFormAI - Payment Service (port 8009)
 Handles: Razorpay orders for agent sessions, premium subscriptions, refunds
 """
+
 import hashlib
 import hmac
 import logging
@@ -33,14 +34,15 @@ RAZORPAY_BASE = "https://api.razorpay.com/v1"
 
 PLAN_PRICES = {
     "free": 0,
-    "pro_monthly": 99,       # ₹99/month
-    "pro_yearly": 799,       # ₹799/year (~₹67/month)
+    "pro_monthly": 99,  # ₹99/month
+    "pro_yearly": 799,  # ₹799/year (~₹67/month)
     "premium_monthly": 299,
     "premium_yearly": 2499,
 }
 
 
 # ── Models ─────────────────────────────────────────────────────────────────────
+
 
 class CreateOrderRequest(BaseModel):
     amount_paise: int = Field(..., gt=0, description="Amount in paise (₹1 = 100 paise)")
@@ -58,10 +60,13 @@ class VerifyPaymentRequest(BaseModel):
 
 
 class SubscriptionRequest(BaseModel):
-    plan: str = Field(..., pattern="^(pro_monthly|pro_yearly|premium_monthly|premium_yearly)$")
+    plan: str = Field(
+        ..., pattern="^(pro_monthly|pro_yearly|premium_monthly|premium_yearly)$"
+    )
 
 
 # ── Razorpay helpers ───────────────────────────────────────────────────────────
+
 
 def _rz_auth():
     if not settings.razorpay_key_id or not settings.razorpay_key_secret:
@@ -69,7 +74,9 @@ def _rz_auth():
     return (settings.razorpay_key_id, settings.razorpay_key_secret)
 
 
-async def _create_rz_order(amount_paise: int, currency: str, receipt: str, notes: dict) -> dict:
+async def _create_rz_order(
+    amount_paise: int, currency: str, receipt: str, notes: dict
+) -> dict:
     auth = _rz_auth()
     async with httpx.AsyncClient() as client:
         resp = await client.post(
@@ -100,6 +107,7 @@ def _verify_signature(order_id: str, payment_id: str, signature: str) -> bool:
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
 
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "payment-service"}
@@ -119,7 +127,11 @@ async def create_payment_order(
         amount_paise=body.amount_paise,
         currency=body.currency,
         receipt=receipt,
-        notes={**body.notes, "user_id": str(current_user.user_id), "purpose": body.purpose},
+        notes={
+            **body.notes,
+            "user_id": str(current_user.user_id),
+            "purpose": body.purpose,
+        },
     )
 
     # Record in DB
@@ -159,7 +171,9 @@ async def verify_payment(
     current_user=Depends(get_current_user),
 ):
     """Verify Razorpay payment signature and mark order as paid."""
-    if not _verify_signature(body.razorpay_order_id, body.razorpay_payment_id, body.razorpay_signature):
+    if not _verify_signature(
+        body.razorpay_order_id, body.razorpay_payment_id, body.razorpay_signature
+    ):
         raise HTTPException(400, "Payment verification failed — invalid signature")
 
     # Get our order record
@@ -186,7 +200,9 @@ async def verify_payment(
     # Fulfill based on purpose
     if order.purpose == "agent_session" and order.reference_id:
         await db.execute(
-            text("UPDATE agent_sessions SET payment_status = 'paid', status = 'confirmed' WHERE id = :id"),
+            text(
+                "UPDATE agent_sessions SET payment_status = 'paid', status = 'confirmed' WHERE id = :id"
+            ),
             {"id": order.reference_id},
         )
     elif order.purpose == "subscription" and order.reference_id:
@@ -203,8 +219,14 @@ async def verify_payment(
         )
 
     await db.commit()
-    logger.info(f"Payment verified: order {body.internal_order_id}, payment {body.razorpay_payment_id}")
-    return {"success": True, "purpose": order.purpose, "reference_id": order.reference_id}
+    logger.info(
+        f"Payment verified: order {body.internal_order_id}, payment {body.razorpay_payment_id}"
+    )
+    return {
+        "success": True,
+        "purpose": order.purpose,
+        "reference_id": order.reference_id,
+    }
 
 
 @app.post("/api/v1/payments/webhook")
@@ -231,7 +253,9 @@ async def razorpay_webhook(request: Request, db=Depends(get_db)):
         order_id = payment.get("order_id")
         if order_id:
             await db.execute(
-                text("UPDATE payment_orders SET status = 'failed' WHERE razorpay_order_id = :oid"),
+                text(
+                    "UPDATE payment_orders SET status = 'failed' WHERE razorpay_order_id = :oid"
+                ),
                 {"oid": order_id},
             )
             await db.commit()
@@ -265,7 +289,9 @@ async def subscription_status(
     current_user=Depends(get_current_user),
 ):
     result = await db.execute(
-        text("SELECT plan, started_at, expires_at, status FROM subscriptions WHERE user_id = :uid AND status = 'active'"),
+        text(
+            "SELECT plan, started_at, expires_at, status FROM subscriptions WHERE user_id = :uid AND status = 'active'"
+        ),
         {"uid": current_user.user_id},
     )
     sub = result.fetchone()
@@ -273,6 +299,7 @@ async def subscription_status(
         return {"plan": "free", "is_active": False}
 
     from datetime import date
+
     is_active = sub.expires_at >= date.today() if sub.expires_at else False
     return {
         "plan": sub.plan,
@@ -290,21 +317,34 @@ async def list_plans():
                 "id": "free",
                 "name": "Free",
                 "price_monthly": 0,
-                "features": ["5 applications/month", "Basic AI form fill", "Document vault (5 docs)"],
+                "features": [
+                    "5 applications/month",
+                    "Basic AI form fill",
+                    "Document vault (5 docs)",
+                ],
             },
             {
                 "id": "pro_monthly",
                 "name": "Pro Monthly",
                 "price_monthly": 99,
                 "price_paise": 9900,
-                "features": ["Unlimited applications", "Full AI features", "WhatsApp alerts", "Priority support"],
+                "features": [
+                    "Unlimited applications",
+                    "Full AI features",
+                    "WhatsApp alerts",
+                    "Priority support",
+                ],
             },
             {
                 "id": "pro_yearly",
                 "name": "Pro Yearly",
                 "price_monthly": 67,
                 "price_paise": 79900,
-                "features": ["Everything in Pro", "2 free agent sessions/year", "Best value"],
+                "features": [
+                    "Everything in Pro",
+                    "2 free agent sessions/year",
+                    "Best value",
+                ],
                 "badge": "Best Value",
             },
         ]

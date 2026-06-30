@@ -2,6 +2,7 @@
 FillFormAI - Application Service (port 8004)
 Handles: Apply to opportunities, track status, AI form fill, document attachment
 """
+
 import logging
 import uuid
 from datetime import datetime
@@ -29,15 +30,26 @@ app.add_middleware(
 
 # Application status flow:
 # draft → submitted → under_review → approved | rejected | on_hold
-APPLICATION_STATUSES = ["draft", "submitted", "under_review", "approved", "rejected", "on_hold", "withdrawn"]
+APPLICATION_STATUSES = [
+    "draft",
+    "submitted",
+    "under_review",
+    "approved",
+    "rejected",
+    "on_hold",
+    "withdrawn",
+]
 
 
 # ── Models ─────────────────────────────────────────────────────────────────────
 
+
 class ApplyRequest(BaseModel):
     opportunity_id: str
     form_data: dict = Field(default_factory=dict)
-    documents: list[str] = Field(default_factory=list, description="List of document IDs to attach")
+    documents: list[str] = Field(
+        default_factory=list, description="List of document IDs to attach"
+    )
     registration_number: Optional[str] = None
     notes: Optional[str] = None
 
@@ -57,6 +69,7 @@ class StatusCheckRequest(BaseModel):
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
 
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "application-service"}
@@ -71,7 +84,9 @@ async def apply_to_opportunity(
     """Submit a new application for an opportunity."""
     # Check opportunity exists
     opp = await db.execute(
-        text("SELECT id, title, deadline, max_applications FROM opportunities WHERE id = :id AND is_active = true"),
+        text(
+            "SELECT id, title, deadline, max_applications FROM opportunities WHERE id = :id AND is_active = true"
+        ),
         {"id": body.opportunity_id},
     )
     opp_row = opp.fetchone()
@@ -83,7 +98,9 @@ async def apply_to_opportunity(
 
     # Check duplicate application
     existing = await db.execute(
-        text("SELECT id FROM applications WHERE user_id = :uid AND opportunity_id = :oid AND status != 'withdrawn'"),
+        text(
+            "SELECT id FROM applications WHERE user_id = :uid AND opportunity_id = :oid AND status != 'withdrawn'"
+        ),
         {"uid": current_user.user_id, "oid": body.opportunity_id},
     )
     if existing.fetchone():
@@ -123,7 +140,9 @@ async def apply_to_opportunity(
         )
 
     await db.commit()
-    logger.info(f"Application {app_id} submitted by user {current_user.user_id} for {body.opportunity_id}")
+    logger.info(
+        f"Application {app_id} submitted by user {current_user.user_id} for {body.opportunity_id}"
+    )
 
     return {
         "application_id": str(app_id),
@@ -261,7 +280,9 @@ async def update_application(
         updates["form_data"] = str(body.form_data).replace("'", '"') + "::jsonb"
     if body.status is not None:
         if body.status not in APPLICATION_STATUSES:
-            raise HTTPException(400, f"Invalid status. Choose from {APPLICATION_STATUSES}")
+            raise HTTPException(
+                400, f"Invalid status. Choose from {APPLICATION_STATUSES}"
+            )
         updates["status"] = body.status
         if body.status in ("approved", "rejected"):
             updates["outcome_date"] = "NOW()"
@@ -288,7 +309,9 @@ async def update_application(
             params[k] = v
 
     await db.execute(
-        text(f"UPDATE applications SET {', '.join(set_parts)}, updated_at = NOW() WHERE id = :id"),
+        text(
+            f"UPDATE applications SET {', '.join(set_parts)}, updated_at = NOW() WHERE id = :id"
+        ),
         params,
     )
     await db.commit()
@@ -349,7 +372,9 @@ async def check_portal_status(
     In production: scrapes NSP/UP Scholarship portals via Playwright.
     """
     existing = await db.execute(
-        text("SELECT id, registration_number FROM applications WHERE id = :id AND user_id = :uid"),
+        text(
+            "SELECT id, registration_number FROM applications WHERE id = :id AND user_id = :uid"
+        ),
         {"id": application_id, "uid": current_user.user_id},
     )
     row = existing.fetchone()

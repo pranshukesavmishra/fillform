@@ -4,7 +4,9 @@ import re
 
 
 class PhoneOTPRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$", description="10-digit Indian mobile")
+    phone: str = Field(
+        ..., pattern=r"^[6-9]\d{9}$", description="10-digit Indian mobile"
+    )
     purpose: str = Field(default="login", pattern="^(login|verify|reset)$")
 
     @field_validator("phone")

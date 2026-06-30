@@ -12,6 +12,7 @@ Alert schedule:
 
 Each alert is sent only once per (document_id, days_remaining) pair to avoid spam.
 """
+
 import logging
 from datetime import date, timedelta
 
@@ -24,16 +25,19 @@ logger = logging.getLogger(__name__)
 
 # Document type → human-readable name + renewal guide
 DOCUMENT_META = {
-    "aadhaar":              ("Aadhaar Card",           None),  # Aadhaar doesn't expire but address update needed
-    "income_certificate":  ("Income Certificate",      "https://edistrict.up.gov.in"),
-    "caste_certificate":   ("Caste Certificate",       "https://edistrict.up.gov.in"),
-    "domicile_certificate":("Domicile Certificate",    "https://edistrict.up.gov.in"),
-    "10th_marksheet":      ("10th Marksheet",          None),  # Permanent
-    "12th_marksheet":      ("12th Marksheet",          None),  # Permanent
-    "bank_passbook":       ("Bank Passbook",           None),
-    "scholarship_sanction":("Scholarship Sanction Letter", None),
-    "bonafide":            ("Bonafide Certificate",    None),  # Renew each academic year
-    "character_certificate":("Character Certificate", None),
+    "aadhaar": (
+        "Aadhaar Card",
+        None,
+    ),  # Aadhaar doesn't expire but address update needed
+    "income_certificate": ("Income Certificate", "https://edistrict.up.gov.in"),
+    "caste_certificate": ("Caste Certificate", "https://edistrict.up.gov.in"),
+    "domicile_certificate": ("Domicile Certificate", "https://edistrict.up.gov.in"),
+    "10th_marksheet": ("10th Marksheet", None),  # Permanent
+    "12th_marksheet": ("12th Marksheet", None),  # Permanent
+    "bank_passbook": ("Bank Passbook", None),
+    "scholarship_sanction": ("Scholarship Sanction Letter", None),
+    "bonafide": ("Bonafide Certificate", None),  # Renew each academic year
+    "character_certificate": ("Character Certificate", None),
 }
 
 ALERT_DAYS = [30, 15, 7, 0]
@@ -109,7 +113,9 @@ async def check_and_send_expiry_alerts(db: AsyncSession) -> dict:
         documents = result.fetchall()
 
         for doc in documents:
-            doc_meta = DOCUMENT_META.get(doc.document_type, (doc.document_type.replace("_", " ").title(), None))
+            doc_meta = DOCUMENT_META.get(
+                doc.document_type, (doc.document_type.replace("_", " ").title(), None)
+            )
             doc_name = doc_meta[0]
             renewal_url = doc_meta[1] or "https://edistrict.up.gov.in"
             template = ALERT_TEMPLATES[days]
@@ -136,14 +142,20 @@ async def check_and_send_expiry_alerts(db: AsyncSession) -> dict:
             # Push notification
             if doc.fcm_token:
                 await _send_push(
-                    db, doc.user_id, doc.fcm_token,
-                    template["title"], body, notification_data
+                    db,
+                    doc.user_id,
+                    doc.fcm_token,
+                    template["title"],
+                    body,
+                    notification_data,
                 )
                 alerts_sent["push"] += 1
 
             # WhatsApp (for 15-day, 7-day, and expired alerts)
             if doc.whatsapp_opted_in and days <= 15:
-                await _send_whatsapp(db, doc.user_id, doc.phone, whatsapp_body, notification_data)
+                await _send_whatsapp(
+                    db, doc.user_id, doc.phone, whatsapp_body, notification_data
+                )
                 alerts_sent["whatsapp"] += 1
 
             # SMS (for 7-day and expired only)
@@ -154,8 +166,12 @@ async def check_and_send_expiry_alerts(db: AsyncSession) -> dict:
 
             # In-app notification (always)
             await _create_in_app_notification(
-                db, doc.user_id, template["title"], body,
-                notification_data, template["urgency"]
+                db,
+                doc.user_id,
+                template["title"],
+                body,
+                notification_data,
+                template["urgency"],
             )
             alerts_sent["in_app"] += 1
             alerts_sent["total_users"] += 1
@@ -171,7 +187,12 @@ async def _send_push(db, user_id, fcm_token, title, body, data):
             INSERT INTO notifications (id, user_id, type, channel, title, body, data, status, created_at)
             VALUES (gen_random_uuid(), :user_id, 'document_expiry', 'push', :title, :body, :data::jsonb, 'pending', NOW())
         """),
-        {"user_id": user_id, "title": title, "body": body, "data": str(data).replace("'", '"')},
+        {
+            "user_id": user_id,
+            "title": title,
+            "body": body,
+            "data": str(data).replace("'", '"'),
+        },
     )
 
 
@@ -201,7 +222,12 @@ async def _create_in_app_notification(db, user_id, title, body, data, urgency):
             INSERT INTO notifications (id, user_id, type, channel, title, body, data, status, created_at)
             VALUES (gen_random_uuid(), :user_id, 'document_expiry', 'in_app', :title, :body, :data::jsonb, 'pending', NOW())
         """),
-        {"user_id": user_id, "title": title, "body": body, "data": str(data).replace("'", '"')},
+        {
+            "user_id": user_id,
+            "title": title,
+            "body": body,
+            "data": str(data).replace("'", '"'),
+        },
     )
     await db.commit()
 
