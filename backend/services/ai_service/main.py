@@ -22,6 +22,9 @@ from backend.services.ai_service.engines.skill_analyzer import SkillGapAnalyzer
 from backend.services.ai_service.engines.roadmap_generator import RoadmapGenerator
 from backend.services.ai_service.engines.sop_builder import SOPBuilder
 from backend.services.ai_service.engines.appeal_writer import AppealWriter
+from backend.services.ai_service.engines.web_form_filler import (
+    auto_fill_government_form,
+)
 from backend.shared.middleware.auth import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -58,6 +61,13 @@ def get_form_engine() -> FormIntelligenceEngine:
     if _form_engine is None:
         _form_engine = FormIntelligenceEngine()
     return _form_engine
+
+
+def get_eligibility_engine() -> AIEligibilityEngine:
+    global _eligibility_engine
+    if _eligibility_engine is None:
+        _eligibility_engine = AIEligibilityEngine()
+    return _eligibility_engine
 
 
 @app.get("/health")
@@ -148,6 +158,47 @@ async def predict_success(
     return result
 
 
+# ── AI-Enhanced Eligibility ────────────────────────────────────────────────────
+class EligibilityCheckRequest(BaseModel):
+    career_dna: dict
+    opportunity: dict
+    rule_result: Optional[dict] = None
+
+
+@app.post("/api/v1/ai/eligibility/check-complex")
+async def check_complex_eligibility(
+    body: EligibilityCheckRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    AI-enhanced eligibility check for borderline/complex cases the rule
+    engine can't confidently resolve (missing data, near-threshold values).
+    """
+    engine = get_eligibility_engine()
+    return await engine.check_complex_eligibility(
+        career_dna=body.career_dna,
+        opportunity=body.opportunity,
+        rule_result=body.rule_result,
+    )
+
+
+class EligibilityBatchRequest(BaseModel):
+    career_dna: dict
+    opportunities: list[dict]
+
+
+@app.post("/api/v1/ai/eligibility/batch-check")
+async def batch_check_eligibility(
+    body: EligibilityBatchRequest,
+    current_user=Depends(get_current_user),
+):
+    engine = get_eligibility_engine()
+    return await engine.batch_check(
+        career_dna=body.career_dna,
+        opportunities=body.opportunities,
+    )
+
+
 # ── Form Intelligence ──────────────────────────────────────────────────────────
 class FormFillRequest(BaseModel):
     form_fields: list[dict] = Field(..., description="List of form field definitions")
@@ -196,6 +247,69 @@ async def validate_form(
         opportunity_id=body.opportunity_id,
     )
     return result
+
+
+# ── Real Portal Auto-Fill ──────────────────────────────────────────────────────
+class AutoFillRequest(BaseModel):
+    portal_url: str = Field(..., description="The actual government form URL to fill")
+    career_dna: dict
+    opportunity_id: str
+
+
+class AutoFillStepResponse(BaseModel):
+    field_id: str
+    label: str
+    value: Optional[str]
+    status: str
+    note: str = ""
+
+
+class AutoFillResponse(BaseModel):
+    success: bool
+    portal_url: str
+    steps: list[AutoFillStepResponse]
+    screenshot_b64: Optional[str] = None
+    fields_filled: int
+    fields_total: int
+    requires_manual_review: list[str]
+    error: Optional[str] = None
+
+
+@app.post("/api/v1/ai/form/auto-fill", response_model=AutoFillResponse)
+async def auto_fill_form(
+    body: AutoFillRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    Actually navigate to the real government portal and fill the live form
+    using the student's Career DNA. Never auto-submits — returns a screenshot
+    and field-by-field report so the student can review before submitting
+    themselves on the official portal.
+    """
+    result = await auto_fill_government_form(
+        portal_url=body.portal_url,
+        career_dna=body.career_dna,
+        opportunity_id=body.opportunity_id,
+    )
+    return AutoFillResponse(
+        success=result.success,
+        portal_url=result.portal_url,
+        steps=[
+            AutoFillStepResponse(
+                field_id=s.field_id,
+                label=s.label,
+                value=s.value,
+                status=s.status,
+                note=s.note,
+            )
+            for s in result.steps
+        ],
+        screenshot_b64=result.screenshot_b64,
+        fields_filled=result.fields_filled,
+        fields_total=result.fields_total,
+        requires_manual_review=result.requires_manual_review,
+        error=result.error,
+    )
 
 
 # ── Skill Gap Analysis ────────────────────────────────────────────────────────

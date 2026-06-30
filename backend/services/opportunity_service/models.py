@@ -99,6 +99,18 @@ class Opportunity(BaseModel):
     )  # extracted form fields
     raw_content: Mapped[str] = mapped_column(Text, nullable=True)
 
+    # Legacy columns kept for compatibility with application_service/agent_service,
+    # which query opportunities with raw SQL against the original simple schema.
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+    amount: Mapped[int] = mapped_column(Integer, nullable=True)
+    eligibility_criteria: Mapped[dict] = mapped_column(JSONB, default=dict)
+    state: Mapped[str] = mapped_column(String(100), nullable=True)
+    level: Mapped[str] = mapped_column(String(20), nullable=True)
+    source_url: Mapped[str] = mapped_column(String(500), nullable=True)
+    eligibility_summary: Mapped[list] = mapped_column(JSONB, default=list)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    max_applications: Mapped[int] = mapped_column(Integer, nullable=True)
+
 
 class OpportunityView(BaseModel):
     __tablename__ = "opportunity_views"

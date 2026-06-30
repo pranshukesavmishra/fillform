@@ -102,10 +102,61 @@ CREATE TABLE IF NOT EXISTS opportunities (
     updated_at          TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Extra columns used by opportunity_service's richer ORM model (eligibility
+-- engine, scraper pipeline, AI scoring). Kept alongside the original simple
+-- columns (amount, is_active, eligibility_criteria) which application_service
+-- and other services query directly with raw SQL — the scraper writes both.
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS short_description VARCHAR(1000);
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS subcategory VARCHAR(100);
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS application_url VARCHAR(500);
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS open_date DATE;
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS result_date DATE;
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS amount_min NUMERIC(12,2);
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS amount_max NUMERIC(12,2);
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS currency VARCHAR(3) DEFAULT 'INR';
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active';
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS verification_confidence NUMERIC(4,3) DEFAULT 0;
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS eligibility_rules JSONB DEFAULT '{}';
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS documents_required JSONB DEFAULT '[]';
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS difficulty_score NUMERIC(4,3) DEFAULT 0.5;
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS competition_score NUMERIC(4,3) DEFAULT 0.5;
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS total_applicants INTEGER DEFAULT 0;
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS total_seats INTEGER;
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS platform_applicants INTEGER DEFAULT 0;
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS platform_success_count INTEGER DEFAULT 0;
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS source VARCHAR(100);
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS last_scraped_at VARCHAR(50);
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS form_schema JSONB DEFAULT '{}';
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS raw_content TEXT;
+
+-- opportunity_service's ORM model treats tags/eligibility_summary as JSONB
+-- (to match eligibility_rules/documents_required); convert from the
+-- original TEXT[] columns.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'opportunities' AND column_name = 'tags' AND data_type = 'ARRAY'
+    ) THEN
+        ALTER TABLE opportunities ALTER COLUMN tags TYPE JSONB USING to_jsonb(tags);
+        ALTER TABLE opportunities ALTER COLUMN tags SET DEFAULT '[]';
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'opportunities' AND column_name = 'eligibility_summary' AND data_type = 'ARRAY'
+    ) THEN
+        ALTER TABLE opportunities ALTER COLUMN eligibility_summary TYPE JSONB USING to_jsonb(eligibility_summary);
+        ALTER TABLE opportunities ALTER COLUMN eligibility_summary SET DEFAULT '[]';
+    END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_opp_category ON opportunities(category);
 CREATE INDEX IF NOT EXISTS idx_opp_state ON opportunities(state);
 CREATE INDEX IF NOT EXISTS idx_opp_deadline ON opportunities(deadline);
 CREATE INDEX IF NOT EXISTS idx_opp_active ON opportunities(is_active);
+CREATE INDEX IF NOT EXISTS idx_opp_status ON opportunities(status);
+CREATE INDEX IF NOT EXISTS idx_opp_source ON opportunities(source);
 CREATE INDEX IF NOT EXISTS idx_opp_title_fts ON opportunities USING GIN (to_tsvector('english', title));
 
 -- ── Bookmarks ─────────────────────────────────────────────────────────────────
@@ -115,6 +166,30 @@ CREATE TABLE IF NOT EXISTS opportunity_bookmarks (
     created_at      TIMESTAMPTZ DEFAULT NOW(),
     PRIMARY KEY (user_id, opportunity_id)
 );
+
+-- opportunity_service's ORM model uses dedicated view/save tables (distinct
+-- from the simpler opportunity_bookmarks table above used elsewhere).
+CREATE TABLE IF NOT EXISTS opportunity_views (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    opportunity_id  UUID NOT NULL,
+    user_id         UUID NOT NULL,
+    source          VARCHAR(50),
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_opp_views_opp ON opportunity_views(opportunity_id);
+CREATE INDEX IF NOT EXISTS idx_opp_views_user ON opportunity_views(user_id);
+
+CREATE TABLE IF NOT EXISTS opportunity_saves (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    opportunity_id  UUID NOT NULL,
+    user_id         UUID NOT NULL,
+    notes           TEXT,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_opp_saves_opp ON opportunity_saves(opportunity_id);
+CREATE INDEX IF NOT EXISTS idx_opp_saves_user ON opportunity_saves(user_id);
 
 -- ── Applications ──────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS applications (
@@ -283,7 +358,7 @@ VALUES
     NULL,
     'national',
     'https://scholarships.gov.in',
-    ARRAY['SC category', 'Post-matric (11th onwards)', 'Family income < ₹2.5 lakh/year', 'Not availing other scholarship'],
+    to_jsonb(ARRAY['SC category', 'Post-matric (11th onwards)', 'Family income < ₹2.5 lakh/year', 'Not availing other scholarship']),
     TRUE
 ),
 (
@@ -296,7 +371,7 @@ VALUES
     'Uttar Pradesh',
     'state',
     'https://scholarship.up.gov.in',
-    ARRAY['UP domicile required', 'Post-matric students', 'OBC/SC/ST/Minority', 'Income limit varies by category'],
+    to_jsonb(ARRAY['UP domicile required', 'Post-matric students', 'OBC/SC/ST/Minority', 'Income limit varies by category']),
     TRUE
 ),
 (
@@ -309,7 +384,7 @@ VALUES
     NULL,
     'national',
     'https://ksb.gov.in/pm-scholarship',
-    ARRAY['Ward of ex-serviceman/coast guard', 'Minimum 60% in qualifying exam', 'Age: 18-25 years', 'First professional degree'],
+    to_jsonb(ARRAY['Ward of ex-serviceman/coast guard', 'Minimum 60% in qualifying exam', 'Age: 18-25 years', 'First professional degree']),
     TRUE
 ),
 (
@@ -322,7 +397,7 @@ VALUES
     NULL,
     'national',
     'https://scholarships.gov.in',
-    ARRAY['Girl student', 'Muslim/Christian/Sikh/Buddhist/Jain/Parsi minority', 'Class 9-12', 'Min 50% in previous class', 'Income < ₹2 lakh/year'],
+    to_jsonb(ARRAY['Girl student', 'Muslim/Christian/Sikh/Buddhist/Jain/Parsi minority', 'Class 9-12', 'Min 50% in previous class', 'Income < ₹2 lakh/year']),
     TRUE
 ),
 (
@@ -335,7 +410,7 @@ VALUES
     NULL,
     'national',
     'https://ssc.nic.in',
-    ARRAY['Graduate in any discipline', 'Age: 18-32 years (relaxation for reserved categories)', 'Indian citizen', 'Physical standards for some posts'],
+    to_jsonb(ARRAY['Graduate in any discipline', 'Age: 18-32 years (relaxation for reserved categories)', 'Indian citizen', 'Physical standards for some posts']),
     TRUE
 ),
 (
@@ -348,7 +423,7 @@ VALUES
     NULL,
     'national',
     'https://yet.nta.ac.in',
-    ARRAY['OBC/EBC/DNT category', 'Class 9 or 11 students', 'Family income < ₹2.5 lakh/year', 'Must appear in YASASVI exam'],
+    to_jsonb(ARRAY['OBC/EBC/DNT category', 'Class 9 or 11 students', 'Family income < ₹2.5 lakh/year', 'Must appear in YASASVI exam']),
     TRUE
 ),
 (
@@ -361,7 +436,7 @@ VALUES
     'Uttar Pradesh',
     'state',
     'https://abhyuday.up.gov.in',
-    ARRAY['UP domicile', 'Age: 16-40 years (varies by exam)', 'Preparing for competitive exams', 'Family income < ₹5 lakh/year preferred'],
+    to_jsonb(ARRAY['UP domicile', 'Age: 16-40 years (varies by exam)', 'Preparing for competitive exams', 'Family income < ₹5 lakh/year preferred']),
     TRUE
 ),
 (
@@ -374,7 +449,7 @@ VALUES
     NULL,
     'national',
     'https://scholarships.gov.in',
-    ARRAY['Girl student', 'Diploma or Degree in AICTE approved institution', 'Family income < ₹8 lakh/year', 'One scholarship per family'],
+    to_jsonb(ARRAY['Girl student', 'Diploma or Degree in AICTE approved institution', 'Family income < ₹8 lakh/year', 'One scholarship per family']),
     TRUE
 )
 ON CONFLICT DO NOTHING;

@@ -55,3 +55,4 @@ python-dateutil==2.9.0
 structlog==24.4.0
 sentry-sdk[fastapi]==2.19.0
 prometheus-client==0.21.0
+apscheduler==3.10.4

@@ -9,6 +9,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Playwright browser binary + OS deps, required by ai_service's web_form_filler
+# and any future browser-automation engines.
+RUN playwright install --with-deps chromium
+
 COPY . .
 
 ENV PYTHONPATH=/app

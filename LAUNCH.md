@@ -35,6 +35,7 @@ This starts:
 | Notification Service | http://localhost:8007 |
 | AI Service | http://localhost:8008 |
 | Payment Service | http://localhost:8009 |
+| Scraper Service | http://localhost:8010 |
 | MinIO (S3) Console | http://localhost:9001 (admin/minioadmin) |
 | Grafana | http://localhost:3001 (admin/admin123) |
 
@@ -123,7 +124,8 @@ NGINX Gateway (port 8000)
     ├── /api/v1/agents/        → agent-service:8006
     ├── /api/v1/notifications/ → notification-service:8007
     ├── /api/v1/ai/            → ai-service:8008
-    └── /api/v1/payments/      → payment-service:8009
+    ├── /api/v1/payments/      → payment-service:8009
+    └── /api/v1/scraper/       → scraper-service:8010
 
 Infrastructure:
   PostgreSQL 16 (port 5432)
