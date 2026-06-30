@@ -20,6 +20,7 @@ from backend.services.ai_service.engines.form_intelligence import FormIntelligen
 from backend.services.ai_service.engines.skill_analyzer import SkillGapAnalyzer
 from backend.services.ai_service.engines.roadmap_generator import RoadmapGenerator
 from backend.services.ai_service.engines.sop_builder import SOPBuilder
+from backend.services.ai_service.engines.appeal_writer import AppealWriter
 from backend.shared.middleware.auth import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ _form_engine: FormIntelligenceEngine | None = None
 _skill_analyzer: SkillGapAnalyzer | None = None
 _roadmap_gen: RoadmapGenerator | None = None
 _sop_builder: SOPBuilder | None = None
+_appeal_writer: AppealWriter | None = None
 
 
 def get_career_twin() -> CareerTwinAgent:
@@ -257,6 +259,73 @@ async def build_sop(
         tone=body.tone,
         word_limit=body.word_limit,
         language=body.language,
+    )
+
+
+# ── Rejection Appeal Writer ───────────────────────────────────────────────────
+
+class AppealRequest(BaseModel):
+    application_data: dict = Field(..., description="The rejected application record")
+    rejection_reason: Optional[str] = Field(None, description="Rejection reason as stated by authority")
+    student_profile: dict = Field(..., description="Student's Career DNA")
+    opportunity_data: Optional[dict] = None
+    language: str = Field(default="both", pattern="^(en|hi|both)$")
+
+
+class GrievanceRequest(BaseModel):
+    issue_type: str = Field(..., description="Type of issue: payment_not_received | login_issue | status_stuck | etc.")
+    description: str = Field(..., min_length=20, max_length=1000)
+    student_profile: dict
+    portal: str = Field(default="NSP")
+
+
+def get_appeal_writer() -> AppealWriter:
+    global _appeal_writer
+    if _appeal_writer is None:
+        _appeal_writer = AppealWriter()
+    return _appeal_writer
+
+
+@app.post("/api/v1/ai/appeal")
+async def write_appeal_letter(
+    body: AppealRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    Generate a formal rejection appeal letter for a scholarship/job application.
+
+    Returns letter in English and/or Hindi with:
+    - Correct addressee and format
+    - Grounds for appeal with relevant provisions cited
+    - Enclosures checklist
+    - Success probability estimate
+    - Practical tips
+    """
+    writer = get_appeal_writer()
+    return await writer.write_appeal(
+        application_data=body.application_data,
+        rejection_reason=body.rejection_reason,
+        student_profile=body.student_profile,
+        language=body.language,
+        opportunity_data=body.opportunity_data,
+    )
+
+
+@app.post("/api/v1/ai/grievance")
+async def write_grievance_letter(
+    body: GrievanceRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    Write a formal grievance for portal technical issues
+    (payment not received, application stuck, PFMS errors, etc.)
+    """
+    writer = get_appeal_writer()
+    return await writer.write_grievance(
+        issue_type=body.issue_type,
+        description=body.description,
+        student_profile=body.student_profile,
+        portal=body.portal,
     )
 
 
