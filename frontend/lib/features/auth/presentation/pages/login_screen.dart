@@ -1,26 +1,29 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/glassmorphism_card.dart';
+import '../providers/auth_provider.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   final String? phone;
 
   const LoginScreen({super.key, this.phone});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _phoneController = TextEditingController();
   final _otpController = TextEditingController();
   bool _otpSent = false;
   bool _isLoading = false;
   int _resendTimer = 0;
+  String? _errorText;
 
   @override
   void initState() {
@@ -40,8 +43,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _sendOTP() async {
     if (_phoneController.text.length != 10) return;
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 1)); // API call placeholder
+    setState(() {
+      _isLoading = true;
+      _errorText = null;
+    });
+    await ref.read(authProvider.notifier).sendOtp(_phoneController.text);
+    final state = ref.read(authProvider);
+    if (!mounted) return;
+    if (state.step == AuthStep.error) {
+      setState(() {
+        _isLoading = false;
+        _errorText = state.error;
+      });
+      return;
+    }
     setState(() {
       _isLoading = false;
       _otpSent = true;
@@ -61,9 +76,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _verifyOTP() async {
     if (_otpController.text.length != 6) return;
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 1));
-    if (mounted) context.go('/dashboard');
+    setState(() {
+      _isLoading = true;
+      _errorText = null;
+    });
+    final success = await ref.read(authProvider.notifier).verifyOtp(_otpController.text);
+    if (!mounted) return;
+    if (!success) {
+      setState(() {
+        _isLoading = false;
+        _errorText = ref.read(authProvider).error;
+      });
+      return;
+    }
+    setState(() => _isLoading = false);
+    context.go('/dashboard');
   }
 
   @override
@@ -296,6 +323,11 @@ class _LoginScreenState extends State<LoginScreen> {
         onChanged: (_) => setState(() {}),
       ),
 
+      if (_errorText != null) ...[
+        const SizedBox(height: AppSpacing.sm),
+        Text(_errorText!, style: AppTextStyles.caption.copyWith(color: Colors.redAccent)),
+      ],
+
       const SizedBox(height: AppSpacing.lg),
 
       SizedBox(
@@ -387,6 +419,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
       ),
+
+      if (_errorText != null) ...[
+        const SizedBox(height: AppSpacing.sm),
+        Center(
+          child: Text(_errorText!, style: AppTextStyles.caption.copyWith(color: Colors.redAccent)),
+        ),
+      ],
 
       const SizedBox(height: AppSpacing.md),
 

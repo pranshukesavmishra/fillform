@@ -204,7 +204,7 @@ class _CareerDNACard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.dna, color: AppColors.primaryLight, size: 20),
+              const Icon(Icons.biotech, color: AppColors.primaryLight, size: 20),
               const SizedBox(width: 8),
               Text('Career DNA', style: AppTextStyles.titleMedium),
               const Spacer(),
