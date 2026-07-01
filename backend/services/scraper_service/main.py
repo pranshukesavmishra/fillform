@@ -186,8 +186,12 @@ async def _notify_matching_users(db, new_opportunities: list[Opportunity]):
                 db.add_notification = True  # marker, actual insert below
 
             if user_rows:
+                # channel is NOT NULL with no column default; omitting it
+                # (as this used to) made every one of these inserts fail
+                # silently, so no opportunity-match notification was ever
+                # actually created.
                 values_sql = ", ".join(
-                    f"(:uid_{i}, :title_{i}, :body_{i}, 'new_opportunity', NOW())"
+                    f"(:uid_{i}, :title_{i}, :body_{i}, 'new_opportunity', 'in_app', NOW())"
                     for i in range(len(user_rows))
                 )
                 insert_params = {}
@@ -200,7 +204,7 @@ async def _notify_matching_users(db, new_opportunities: list[Opportunity]):
                     )
                 await db.execute(
                     text(
-                        f"INSERT INTO notifications (user_id, title, body, type, created_at) "
+                        f"INSERT INTO notifications (user_id, title, body, type, channel, created_at) "
                         f"VALUES {values_sql}"
                     ),
                     insert_params,

@@ -13,6 +13,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from sqlalchemy import text
 
 from backend.shared.config.settings import settings
 from backend.shared.database import get_db
@@ -238,6 +239,80 @@ async def send_sms(
         raise HTTPException(502, f"SMS failed: {resp.text}")
 
     return {"sent": True, "sid": resp.json().get("sid")}
+
+
+# ── In-app notification inbox ─────────────────────────────────────────────────
+
+
+@app.get("/api/v1/notifications/my")
+async def list_my_notifications(
+    unread_only: bool = False,
+    limit: int = 50,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """List the current user's in-app notifications (e.g. new matching
+    opportunities from the scraper, deadline reminders)."""
+    where = "WHERE user_id = :uid"
+    if unread_only:
+        where += " AND read_at IS NULL"
+
+    result = await db.execute(
+        text(f"""
+            SELECT id, type, channel, title, body, data, status, read_at, created_at
+            FROM notifications
+            {where}
+            ORDER BY created_at DESC
+            LIMIT :limit
+        """),
+        {"uid": current_user.user_id, "limit": limit},
+    )
+    rows = result.fetchall()
+    unread_r = await db.execute(
+        text(
+            "SELECT COUNT(*) FROM notifications WHERE user_id = :uid AND read_at IS NULL"
+        ),
+        {"uid": current_user.user_id},
+    )
+    return {
+        "notifications": [dict(r._mapping) for r in rows],
+        "unread_count": unread_r.scalar() or 0,
+    }
+
+
+@app.post("/api/v1/notifications/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: str,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    result = await db.execute(
+        text(
+            "UPDATE notifications SET read_at = NOW() "
+            "WHERE id = :id AND user_id = :uid RETURNING id"
+        ),
+        {"id": notification_id, "uid": current_user.user_id},
+    )
+    if not result.fetchone():
+        raise HTTPException(404, "Notification not found")
+    await db.commit()
+    return {"success": True}
+
+
+@app.post("/api/v1/notifications/read-all")
+async def mark_all_notifications_read(
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    await db.execute(
+        text(
+            "UPDATE notifications SET read_at = NOW() "
+            "WHERE user_id = :uid AND read_at IS NULL"
+        ),
+        {"uid": current_user.user_id},
+    )
+    await db.commit()
+    return {"success": True}
 
 
 # ── Document Expiry Alerts (manual trigger for testing) ───────────────────────

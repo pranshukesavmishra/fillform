@@ -87,11 +87,41 @@ class _SideNav extends StatelessWidget {
               isSelected: currentIndex == e.key,
             )),
             const Spacer(),
-            // Documents shortcut
+            // Secondary shortcuts (not part of the primary 5-tab nav)
             _SideNavItem(
               icon: Icons.folder_outlined,
               label: 'Documents',
               route: '/documents',
+              isSelected: false,
+            ),
+            _SideNavItem(
+              icon: Icons.notifications_outlined,
+              label: 'Notifications',
+              route: '/notifications',
+              isSelected: false,
+            ),
+            _SideNavItem(
+              icon: Icons.workspace_premium_outlined,
+              label: 'Subscription',
+              route: '/payments',
+              isSelected: false,
+            ),
+            _SideNavItem(
+              icon: Icons.description_outlined,
+              label: 'SOP Writer',
+              route: '/sop-writer',
+              isSelected: false,
+            ),
+            _SideNavItem(
+              icon: Icons.gavel_outlined,
+              label: 'Appeal Writer',
+              route: '/appeal-writer',
+              isSelected: false,
+            ),
+            _SideNavItem(
+              icon: Icons.route_outlined,
+              label: 'Roadmap',
+              route: '/roadmap',
               isSelected: false,
             ),
             const SizedBox(height: AppSpacing.lg),

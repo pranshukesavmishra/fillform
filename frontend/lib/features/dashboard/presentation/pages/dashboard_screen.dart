@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/glassmorphism_card.dart';
 import '../../../applications/presentation/providers/applications_provider.dart';
+import '../../../notifications/presentation/providers/notifications_provider.dart';
 import '../../../opportunities/presentation/providers/opportunities_provider.dart';
 import '../../../profile/presentation/providers/profile_provider.dart';
 import '../providers/dashboard_provider.dart';
@@ -123,14 +124,18 @@ class DashboardScreen extends ConsumerWidget {
 }
 
 // ── App Bar ───────────────────────────────────────────────────────────────────
-class _DashboardAppBar extends StatelessWidget {
+class _DashboardAppBar extends ConsumerWidget {
   final String studentName;
   final int trustScore;
 
   const _DashboardAppBar({required this.studentName, required this.trustScore});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unreadCount = ref.watch(notificationsProvider).maybeWhen(
+      data: (data) => (data['unread_count'] as num?)?.toInt() ?? 0,
+      orElse: () => 0,
+    );
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
@@ -163,31 +168,35 @@ class _DashboardAppBar extends StatelessWidget {
             const SizedBox(width: AppSpacing.md),
 
             // Notification bell
-            Stack(
-              children: [
-                GlassCard(
-                  padding: const EdgeInsets.all(12),
-                  showShadow: false,
-                  child: const Icon(
-                    Icons.notifications_outlined,
-                    color: AppColors.textPrimary,
-                    size: 22,
-                  ),
-                ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: AppColors.accent,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.bgDark, width: 2),
+            GestureDetector(
+              onTap: () => context.go('/notifications'),
+              child: Stack(
+                children: [
+                  GlassCard(
+                    padding: const EdgeInsets.all(12),
+                    showShadow: false,
+                    child: const Icon(
+                      Icons.notifications_outlined,
+                      color: AppColors.textPrimary,
+                      size: 22,
                     ),
                   ),
-                ),
-              ],
+                  if (unreadCount > 0)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: AppColors.accent,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.bgDark, width: 2),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ],
         ),
