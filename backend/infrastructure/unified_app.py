@@ -145,6 +145,15 @@ _expiry_scheduler: AsyncIOScheduler | None = None
 @app.on_event("startup")
 async def start_background_jobs():
     global _scraper_scheduler, _expiry_scheduler
+    import asyncio
+
+    # Fire the scraper once immediately in the background (fire-and-forget)
+    # rather than via APScheduler's next_run_time -- passing a naive
+    # datetime.now() there gets compared against the scheduler's
+    # Asia/Kolkata-aware clock and was silently discarded as "misfired"
+    # by exactly the IST UTC+5:30 offset, so the job never actually ran.
+    asyncio.create_task(run_all_scrapers())
+
     _scraper_scheduler = AsyncIOScheduler(timezone="Asia/Kolkata")
     _scraper_scheduler.add_job(
         run_all_scrapers, "interval", hours=6, id="scrape_all_portals"

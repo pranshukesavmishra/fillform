@@ -177,7 +177,7 @@ async def _notify_matching_users(db, new_opportunities: list[Opportunity]):
 
             where = " AND ".join(where_parts)
             rows = await db.execute(
-                text(f"SELECT id, phone FROM users WHERE {where} LIMIT 500"),
+                text(f"SELECT id, phone FROM users u WHERE {where} LIMIT 500"),
                 params,
             )
             user_rows = rows.fetchall()
@@ -208,6 +208,12 @@ async def _notify_matching_users(db, new_opportunities: list[Opportunity]):
         await db.commit()
     except Exception as e:
         logger.error(f"Notify matching users failed: {e}")
+        # Without this, a failed statement here leaves the shared session's
+        # transaction "aborted" for every later query on it -- including the
+        # other 3 scrapers' upserts in the same run_all_scrapers() call --
+        # so one bad notification silently broke every scraper that ran
+        # after it.
+        await db.rollback()
 
 
 async def run_all_scrapers() -> dict:
