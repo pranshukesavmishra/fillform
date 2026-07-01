@@ -98,6 +98,18 @@ async def bootstrap_schema():
     finally:
         await conn.close()
 
+    # init.sql only covers the tables each service's own docker-compose
+    # bootstrap historically created; ORM-only tables declared purely in
+    # Python (e.g. auth_service's RefreshToken -> "refresh_tokens", which has
+    # no entry in init.sql at all) never get created by the block above.
+    # Base.metadata accumulates every model class from every service we've
+    # imported above, so create_all here catches anything init.sql missed.
+    from backend.shared.database import Base, engine  # noqa: E402
+
+    async with engine.begin() as db_conn:
+        await db_conn.run_sync(Base.metadata.create_all)
+    logger.info("ORM metadata create_all complete (covers tables init.sql doesn't define)")
+
 
 # ── Background jobs ───────────────────────────────────────────────────────────
 # scraper_service and notification_service each normally run their own
