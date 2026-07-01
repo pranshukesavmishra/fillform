@@ -11,6 +11,7 @@ class OpportunityModel {
   final bool isVerified;
   final Map<String, dynamic> eligibilityRules;
   final List<String> tags;
+  final double? difficultyScore;
 
   const OpportunityModel({
     required this.id,
@@ -25,6 +26,7 @@ class OpportunityModel {
     this.isVerified = false,
     this.eligibilityRules = const {},
     this.tags = const [],
+    this.difficultyScore,
   });
 
   factory OpportunityModel.fromJson(Map<String, dynamic> json) {
@@ -41,6 +43,7 @@ class OpportunityModel {
       isVerified: json['is_verified'] as bool? ?? false,
       eligibilityRules: (json['eligibility_rules'] as Map<String, dynamic>?) ?? const {},
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
+      difficultyScore: (json['difficulty_score'] as num?)?.toDouble(),
     );
   }
 

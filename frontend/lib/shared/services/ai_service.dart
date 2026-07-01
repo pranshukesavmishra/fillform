@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -132,7 +134,7 @@ class AIService {
 
   Future<Map<String, dynamic>> getDailyBriefing(Map<String, dynamic> careerDna) async {
     final resp = await _dio.get('/api/v1/ai/briefing', queryParameters: {
-      'career_dna': careerDna.toString(),
+      'career_dna': jsonEncode(careerDna),
     });
     return resp.data as Map<String, dynamic>;
   }

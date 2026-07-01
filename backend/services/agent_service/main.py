@@ -98,7 +98,10 @@ async def list_agents(
         where_parts.append("a.fee_per_session <= :max_fee")
         params["max_fee"] = max_fee
 
-    where_parts.append("COALESCE(a.average_rating, 0) >= :min_rating")
+    # Newly onboarded agents have no reviews yet (average_rating IS NULL) --
+    # without this OR, COALESCE(NULL, 0) >= min_rating is always false, so
+    # every brand-new agent was permanently invisible in the marketplace.
+    where_parts.append("(a.average_rating IS NULL OR a.average_rating >= :min_rating)")
     where = "WHERE " + " AND ".join(where_parts)
 
     result = await db.execute(

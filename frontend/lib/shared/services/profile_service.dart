@@ -35,6 +35,22 @@ class ProfileService {
   Future<void> deleteDocument(String docId) async {
     await _dio.delete('/api/v1/profile/documents/$docId');
   }
+
+  /// Records that a document was uploaded. NOTE: this only stores metadata
+  /// (document type, file name) -- there's no S3-compatible object storage
+  /// configured for this deploy yet, so the actual file bytes aren't
+  /// persisted anywhere. Once real object storage credentials are added,
+  /// this should upload the bytes first and pass the real storage key.
+  Future<void> recordDocumentUploaded({
+    required String documentType,
+    required String fileName,
+  }) async {
+    await _dio.post('/api/v1/profile/documents', data: {
+      'document_type': documentType,
+      'file_name': fileName,
+      's3_key': 'unconfigured/$documentType/$fileName',
+    });
+  }
 }
 
 final profileServiceProvider = Provider<ProfileService>(

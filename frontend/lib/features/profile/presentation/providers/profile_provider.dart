@@ -45,6 +45,16 @@ class ProfileUpdateNotifier extends StateNotifier<AsyncValue<void>> {
       rethrow;
     }
   }
+
+  Future<void> uploadDocument({required String documentType, required String fileName}) async {
+    try {
+      await _service.recordDocumentUploaded(documentType: documentType, fileName: fileName);
+      _ref.invalidate(documentsProvider);
+      _ref.invalidate(profileStatsProvider);
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
 
 final profileUpdateProvider = StateNotifierProvider<ProfileUpdateNotifier, AsyncValue<void>>(
