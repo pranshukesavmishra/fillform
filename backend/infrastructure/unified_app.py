@@ -51,8 +51,16 @@ from backend.services.payment_service.main import app as _payment  # noqa: E402
 from backend.services.scraper_service.main import app as _scraper  # noqa: E402
 
 _SUB_APPS = [
-    _auth, _profile, _opportunity, _application, _document,
-    _agent, _notification, _ai, _payment, _scraper,
+    _auth,
+    _profile,
+    _opportunity,
+    _application,
+    _document,
+    _agent,
+    _notification,
+    _ai,
+    _payment,
+    _scraper,
 ]
 
 for _sub in _SUB_APPS:
@@ -62,7 +70,11 @@ for _sub in _SUB_APPS:
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "fillformai-unified", "merged_services": len(_SUB_APPS)}
+    return {
+        "status": "ok",
+        "service": "fillformai-unified",
+        "merged_services": len(_SUB_APPS),
+    }
 
 
 @app.get("/")
@@ -108,7 +120,9 @@ async def bootstrap_schema():
 
     async with engine.begin() as db_conn:
         await db_conn.run_sync(Base.metadata.create_all)
-    logger.info("ORM metadata create_all complete (covers tables init.sql doesn't define)")
+    logger.info(
+        "ORM metadata create_all complete (covers tables init.sql doesn't define)"
+    )
 
 
 # ── Background jobs ───────────────────────────────────────────────────────────
@@ -132,13 +146,17 @@ _expiry_scheduler: AsyncIOScheduler | None = None
 async def start_background_jobs():
     global _scraper_scheduler, _expiry_scheduler
     _scraper_scheduler = AsyncIOScheduler(timezone="Asia/Kolkata")
-    _scraper_scheduler.add_job(run_all_scrapers, "interval", hours=6, id="scrape_all_portals")
+    _scraper_scheduler.add_job(
+        run_all_scrapers, "interval", hours=6, id="scrape_all_portals"
+    )
     _scraper_scheduler.start()
 
     _expiry_scheduler = setup_expiry_scheduler(app, get_db)
     _expiry_scheduler.start()
 
-    logger.info("Background jobs started: scraper (6h), deadline reminders (daily 9 AM IST)")
+    logger.info(
+        "Background jobs started: scraper (6h), deadline reminders (daily 9 AM IST)"
+    )
 
 
 @app.on_event("shutdown")

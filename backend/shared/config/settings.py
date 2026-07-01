@@ -35,9 +35,9 @@ class Settings(BaseSettings):
         # plain "postgres://" or "postgresql://" URLs; SQLAlchemy's async
         # engine needs the asyncpg dialect prefix.
         if v.startswith("postgres://"):
-            return "postgresql+asyncpg://" + v[len("postgres://"):]
+            return "postgresql+asyncpg://" + v[len("postgres://") :]
         if v.startswith("postgresql://"):
-            return "postgresql+asyncpg://" + v[len("postgresql://"):]
+            return "postgresql+asyncpg://" + v[len("postgresql://") :]
         return v
 
     # Redis
