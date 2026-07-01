@@ -75,7 +75,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _verifyOTP() async {
-    if (_otpController.text.length != 6) return;
+    if (_otpController.text.length != 6 || _isLoading) return;
     setState(() {
       _isLoading = true;
       _errorText = null;
@@ -398,7 +398,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
         onChanged: (v) {
           setState(() {});
-          if (v.length == 6) _verifyOTP();
+          if (v.length == 6 && !_isLoading) _verifyOTP();
         },
       ),
 
