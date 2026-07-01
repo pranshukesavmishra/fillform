@@ -11,13 +11,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc libpq-dev libmagic1 tesseract-ocr tesseract-ocr-hin \
     && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements.txt .
+# Build context is the `backend/` directory itself (Railway service's Root
+# Directory is set to /backend), so these paths are relative to that, not
+# the repo root.
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Playwright browser binary + OS deps, required by ai_service's web_form_filler.
 RUN playwright install --with-deps chromium
 
-COPY backend/ ./backend/
+COPY . ./backend/
 
 ENV PYTHONPATH=/app
 ENV PYTHONDONTWRITEBYTECODE=1
