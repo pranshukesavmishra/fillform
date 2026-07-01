@@ -1,6 +1,15 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/services/auth_service.dart';
+
+String _extractErrorMessage(Object e, String fallback) {
+  if (e is DioException) {
+    final data = e.response?.data;
+    if (data is Map && data['detail'] != null) return data['detail'].toString();
+  }
+  return fallback;
+}
 
 enum AuthStep { idle, sendingOtp, otpSent, verifying, success, error }
 
@@ -45,7 +54,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _service.sendOtp(phone);
       state = state.copyWith(step: AuthStep.otpSent);
     } catch (e) {
-      state = state.copyWith(step: AuthStep.error, error: e.toString());
+      state = state.copyWith(
+        step: AuthStep.error,
+        error: _extractErrorMessage(e, e.toString()),
+      );
     }
   }
 
@@ -56,7 +68,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(step: AuthStep.success, isLoggedIn: true);
       return true;
     } catch (e) {
-      state = state.copyWith(step: AuthStep.error, error: 'Invalid OTP. Please try again.');
+      state = state.copyWith(
+        step: AuthStep.error,
+        error: _extractErrorMessage(e, 'Invalid OTP. Please try again.'),
+      );
       return false;
     }
   }
