@@ -13,6 +13,11 @@ import 'package:fillformai/features/career_twin/presentation/pages/career_twin_s
 import 'package:fillformai/features/profile/presentation/pages/profile_screen.dart';
 import 'package:fillformai/features/agents/presentation/pages/agent_list_screen.dart';
 import 'package:fillformai/features/documents/presentation/pages/documents_screen.dart';
+import 'package:fillformai/features/payments/presentation/pages/payments_screen.dart';
+import 'package:fillformai/features/notifications/presentation/pages/notifications_screen.dart';
+import 'package:fillformai/features/career_tools/presentation/pages/sop_writer_screen.dart';
+import 'package:fillformai/features/career_tools/presentation/pages/appeal_writer_screen.dart';
+import 'package:fillformai/features/career_tools/presentation/pages/roadmap_screen.dart';
 import 'package:fillformai/shared/widgets/main_shell.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -94,6 +99,36 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/documents',
             pageBuilder: (context, state) => _fadeTransition(
               state, const DocumentsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/payments',
+            pageBuilder: (context, state) => _fadeTransition(
+              state, const PaymentsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/notifications',
+            pageBuilder: (context, state) => _fadeTransition(
+              state, const NotificationsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/sop-writer',
+            pageBuilder: (context, state) => _fadeTransition(
+              state, const SopWriterScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/appeal-writer',
+            pageBuilder: (context, state) => _fadeTransition(
+              state, const AppealWriterScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/roadmap',
+            pageBuilder: (context, state) => _fadeTransition(
+              state, const RoadmapScreen(),
             ),
           ),
         ],

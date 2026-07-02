@@ -1,10 +1,13 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
+from uuid import UUID
 import re
 
 
 class PhoneOTPRequest(BaseModel):
-    phone: str = Field(..., pattern=r"^[6-9]\d{9}$", description="10-digit Indian mobile")
+    phone: str = Field(
+        ..., pattern=r"^[6-9]\d{9}$", description="10-digit Indian mobile"
+    )
     purpose: str = Field(default="login", pattern="^(login|verify|reset)$")
 
     @field_validator("phone")
@@ -51,7 +54,7 @@ class RefreshTokenRequest(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: str
+    id: UUID
     phone: Optional[str] = None
     email: Optional[str] = None
     full_name: str

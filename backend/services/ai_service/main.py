@@ -3,11 +3,12 @@ FillFormAI - AI Service
 Handles: Career Twin, Eligibility AI, Success Predictor, Form Fill Intelligence,
          Skill Gap Analysis, Roadmap Generation, SOP Builder
 """
+
 import logging
 from typing import Optional, AsyncGenerator
 import json
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -20,6 +21,10 @@ from backend.services.ai_service.engines.form_intelligence import FormIntelligen
 from backend.services.ai_service.engines.skill_analyzer import SkillGapAnalyzer
 from backend.services.ai_service.engines.roadmap_generator import RoadmapGenerator
 from backend.services.ai_service.engines.sop_builder import SOPBuilder
+from backend.services.ai_service.engines.appeal_writer import AppealWriter
+from backend.services.ai_service.engines.web_form_filler import (
+    auto_fill_government_form,
+)
 from backend.shared.middleware.auth import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -41,6 +46,7 @@ _form_engine: FormIntelligenceEngine | None = None
 _skill_analyzer: SkillGapAnalyzer | None = None
 _roadmap_gen: RoadmapGenerator | None = None
 _sop_builder: SOPBuilder | None = None
+_appeal_writer: AppealWriter | None = None
 
 
 def get_career_twin() -> CareerTwinAgent:
@@ -55,6 +61,13 @@ def get_form_engine() -> FormIntelligenceEngine:
     if _form_engine is None:
         _form_engine = FormIntelligenceEngine()
     return _form_engine
+
+
+def get_eligibility_engine() -> AIEligibilityEngine:
+    global _eligibility_engine
+    if _eligibility_engine is None:
+        _eligibility_engine = AIEligibilityEngine()
+    return _eligibility_engine
 
 
 @app.get("/health")
@@ -88,6 +101,7 @@ async def career_twin_chat(
     agent = get_career_twin()
 
     if body.stream:
+
         async def event_stream() -> AsyncGenerator[str, None]:
             async for chunk in agent.stream_response(
                 user_id=str(current_user.user_id),
@@ -121,7 +135,7 @@ class SuccessProbabilityRequest(BaseModel):
 
 class SuccessProbabilityResponse(BaseModel):
     probability: float  # 0-1
-    confidence: float   # 0-1, based on sample size
+    confidence: float  # 0-1, based on sample size
     sample_size: int
     boosting_factors: list[dict]
     reducing_factors: list[dict]
@@ -142,6 +156,47 @@ async def predict_success(
         application_completeness=body.application_completeness,
     )
     return result
+
+
+# ── AI-Enhanced Eligibility ────────────────────────────────────────────────────
+class EligibilityCheckRequest(BaseModel):
+    career_dna: dict
+    opportunity: dict
+    rule_result: Optional[dict] = None
+
+
+@app.post("/api/v1/ai/eligibility/check-complex")
+async def check_complex_eligibility(
+    body: EligibilityCheckRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    AI-enhanced eligibility check for borderline/complex cases the rule
+    engine can't confidently resolve (missing data, near-threshold values).
+    """
+    engine = get_eligibility_engine()
+    return await engine.check_complex_eligibility(
+        career_dna=body.career_dna,
+        opportunity=body.opportunity,
+        rule_result=body.rule_result,
+    )
+
+
+class EligibilityBatchRequest(BaseModel):
+    career_dna: dict
+    opportunities: list[dict]
+
+
+@app.post("/api/v1/ai/eligibility/batch-check")
+async def batch_check_eligibility(
+    body: EligibilityBatchRequest,
+    current_user=Depends(get_current_user),
+):
+    engine = get_eligibility_engine()
+    return await engine.batch_check(
+        career_dna=body.career_dna,
+        opportunities=body.opportunities,
+    )
 
 
 # ── Form Intelligence ──────────────────────────────────────────────────────────
@@ -194,6 +249,69 @@ async def validate_form(
     return result
 
 
+# ── Real Portal Auto-Fill ──────────────────────────────────────────────────────
+class AutoFillRequest(BaseModel):
+    portal_url: str = Field(..., description="The actual government form URL to fill")
+    career_dna: dict
+    opportunity_id: str
+
+
+class AutoFillStepResponse(BaseModel):
+    field_id: str
+    label: str
+    value: Optional[str]
+    status: str
+    note: str = ""
+
+
+class AutoFillResponse(BaseModel):
+    success: bool
+    portal_url: str
+    steps: list[AutoFillStepResponse]
+    screenshot_b64: Optional[str] = None
+    fields_filled: int
+    fields_total: int
+    requires_manual_review: list[str]
+    error: Optional[str] = None
+
+
+@app.post("/api/v1/ai/form/auto-fill", response_model=AutoFillResponse)
+async def auto_fill_form(
+    body: AutoFillRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    Actually navigate to the real government portal and fill the live form
+    using the student's Career DNA. Never auto-submits — returns a screenshot
+    and field-by-field report so the student can review before submitting
+    themselves on the official portal.
+    """
+    result = await auto_fill_government_form(
+        portal_url=body.portal_url,
+        career_dna=body.career_dna,
+        opportunity_id=body.opportunity_id,
+    )
+    return AutoFillResponse(
+        success=result.success,
+        portal_url=result.portal_url,
+        steps=[
+            AutoFillStepResponse(
+                field_id=s.field_id,
+                label=s.label,
+                value=s.value,
+                status=s.status,
+                note=s.note,
+            )
+            for s in result.steps
+        ],
+        screenshot_b64=result.screenshot_b64,
+        fields_filled=result.fields_filled,
+        fields_total=result.fields_total,
+        requires_manual_review=result.requires_manual_review,
+        error=result.error,
+    )
+
+
 # ── Skill Gap Analysis ────────────────────────────────────────────────────────
 class SkillGapRequest(BaseModel):
     career_dna: dict
@@ -240,7 +358,9 @@ async def generate_roadmap(
 class SOPRequest(BaseModel):
     career_dna: dict
     opportunity: dict
-    tone: str = Field(default="professional", pattern="^(professional|academic|personal)$")
+    tone: str = Field(
+        default="professional", pattern="^(professional|academic|personal)$"
+    )
     word_limit: int = Field(default=500, ge=200, le=2000)
     language: str = Field(default="en")
 
@@ -260,6 +380,79 @@ async def build_sop(
     )
 
 
+# ── Rejection Appeal Writer ───────────────────────────────────────────────────
+
+
+class AppealRequest(BaseModel):
+    application_data: dict = Field(..., description="The rejected application record")
+    rejection_reason: Optional[str] = Field(
+        None, description="Rejection reason as stated by authority"
+    )
+    student_profile: dict = Field(..., description="Student's Career DNA")
+    opportunity_data: Optional[dict] = None
+    language: str = Field(default="both", pattern="^(en|hi|both)$")
+
+
+class GrievanceRequest(BaseModel):
+    issue_type: str = Field(
+        ...,
+        description="Type of issue: payment_not_received | login_issue | status_stuck | etc.",
+    )
+    description: str = Field(..., min_length=20, max_length=1000)
+    student_profile: dict
+    portal: str = Field(default="NSP")
+
+
+def get_appeal_writer() -> AppealWriter:
+    global _appeal_writer
+    if _appeal_writer is None:
+        _appeal_writer = AppealWriter()
+    return _appeal_writer
+
+
+@app.post("/api/v1/ai/appeal")
+async def write_appeal_letter(
+    body: AppealRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    Generate a formal rejection appeal letter for a scholarship/job application.
+
+    Returns letter in English and/or Hindi with:
+    - Correct addressee and format
+    - Grounds for appeal with relevant provisions cited
+    - Enclosures checklist
+    - Success probability estimate
+    - Practical tips
+    """
+    writer = get_appeal_writer()
+    return await writer.write_appeal(
+        application_data=body.application_data,
+        rejection_reason=body.rejection_reason,
+        student_profile=body.student_profile,
+        language=body.language,
+        opportunity_data=body.opportunity_data,
+    )
+
+
+@app.post("/api/v1/ai/grievance")
+async def write_grievance_letter(
+    body: GrievanceRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    Write a formal grievance for portal technical issues
+    (payment not received, application stuck, PFMS errors, etc.)
+    """
+    writer = get_appeal_writer()
+    return await writer.write_grievance(
+        issue_type=body.issue_type,
+        description=body.description,
+        student_profile=body.student_profile,
+        portal=body.portal,
+    )
+
+
 # ── Daily Career Briefing ──────────────────────────────────────────────────────
 @app.get("/api/v1/ai/briefing")
 async def daily_briefing(
@@ -268,6 +461,7 @@ async def daily_briefing(
 ):
     """Generate personalized daily career briefing for student."""
     import json as json_lib
+
     dna = json_lib.loads(career_dna)
     agent = get_career_twin()
     return await agent.generate_briefing(

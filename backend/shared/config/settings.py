@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 from typing import List
@@ -26,6 +27,18 @@ class Settings(BaseSettings):
 
     # PostgreSQL
     DATABASE_URL: str
+
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def _force_asyncpg_dialect(cls, v: str) -> str:
+        # Managed Postgres hosts (Railway, Render, Heroku-style) hand out
+        # plain "postgres://" or "postgresql://" URLs; SQLAlchemy's async
+        # engine needs the asyncpg dialect prefix.
+        if v.startswith("postgres://"):
+            return "postgresql+asyncpg://" + v[len("postgres://") :]
+        if v.startswith("postgresql://"):
+            return "postgresql+asyncpg://" + v[len("postgresql://") :]
+        return v
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -62,6 +75,8 @@ class Settings(BaseSettings):
     # Payments
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
+    RAZORPAY_WEBHOOK_SECRET: str = ""
+    FCM_SERVER_KEY: str = ""
 
     # OAuth
     GOOGLE_CLIENT_ID: str = ""

@@ -1,10 +1,11 @@
 """Kafka event producer/consumer for inter-service communication."""
+
 import json
 import logging
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Awaitable
+from typing import Callable, Awaitable
 import uuid
 
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer

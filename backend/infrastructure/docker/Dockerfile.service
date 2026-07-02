@@ -1,4 +1,7 @@
-FROM python:3.12-slim
+# Pinned to bookworm (Debian 12): Playwright's `--with-deps` OS package list
+# doesn't yet cover trixie (Debian 13), which the floating `python:3.12-slim`
+# tag now resolves to, and fails on renamed font packages there.
+FROM python:3.12-slim-bookworm
 
 WORKDIR /app
 
@@ -8,6 +11,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Playwright browser binary + OS deps, required by ai_service's web_form_filler
+# and any future browser-automation engines.
+RUN playwright install --with-deps chromium
 
 COPY . .
 

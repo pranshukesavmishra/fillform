@@ -27,7 +27,7 @@ class _OpportunityMiniCardState extends State<OpportunityMiniCard> {
       onExit: (_) => setState(() => _isHovered = false),
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: () => context.go('/opportunities/mock-id'),
+        onTap: () => context.go('/opportunities/${widget.data['id']}'),
         child: AnimatedContainer(
           duration: AppDurations.fast,
           transform: Matrix4.translationValues(0, _isHovered ? -3 : 0, 0),

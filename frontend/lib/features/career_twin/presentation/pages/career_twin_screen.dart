@@ -1,56 +1,31 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/glassmorphism_card.dart';
+import '../../../profile/presentation/providers/profile_provider.dart';
+import '../providers/career_twin_provider.dart';
 
-class CareerTwinScreen extends StatefulWidget {
+class CareerTwinScreen extends ConsumerStatefulWidget {
   const CareerTwinScreen({super.key});
   @override
-  State<CareerTwinScreen> createState() => _CareerTwinScreenState();
+  ConsumerState<CareerTwinScreen> createState() => _CareerTwinScreenState();
 }
 
-class _CareerTwinScreenState extends State<CareerTwinScreen> {
+class _CareerTwinScreenState extends ConsumerState<CareerTwinScreen> {
   final TextEditingController _msgController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _isTyping = false;
 
-  final List<_ChatMessage> _messages = [
-    _ChatMessage(
-      isAI: true,
-      text: "Namaste Anshu! 👋 I'm your Career Twin. I've analyzed your profile and found 3 urgent opportunities you should apply to this week.\n\nThe NSP Scholarship closes in **3 days** and your success probability is **78%**. Want me to start filling your application?",
-      actions: ['Yes, start application', 'Show all opportunities', 'Set a goal'],
-      timestamp: DateTime.now().subtract(const Duration(minutes: 2)),
-    ),
-  ];
-
-  void _sendMessage(String text) {
+  void _sendMessage(Map<String, dynamic> dna, String text) {
     if (text.trim().isEmpty) return;
-    setState(() {
-      _messages.add(_ChatMessage(isAI: false, text: text, timestamp: DateTime.now()));
-      _isTyping = true;
-      _msgController.clear();
-    });
-
-    // Simulate AI response
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      setState(() {
-        _isTyping = false;
-        _messages.add(_ChatMessage(
-          isAI: true,
-          text: "Great! I've started pre-filling your NSP Scholarship application. I've auto-filled 8 out of 12 fields using your profile.\n\nI need 2 things from you:\n1. Upload your **Income Certificate** (required)\n2. Confirm your Bank Account number\n\nShall I guide you through these?",
-          actions: ['Upload now', 'Confirm bank details'],
-          timestamp: DateTime.now(),
-        ));
-      });
-      _scrollToBottom();
-    });
+    _msgController.clear();
+    ref.read(careerTwinProvider((dna: dna, lang: 'en')).notifier).sendMessage(text);
     _scrollToBottom();
   }
 
   void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 100), () {
+    Future.delayed(const Duration(milliseconds: 150), () {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
@@ -63,41 +38,83 @@ class _CareerTwinScreenState extends State<CareerTwinScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isWide = size.width > 900;
+    final careerDnaAsync = ref.watch(careerDnaProvider);
 
     return Scaffold(
       backgroundColor: AppColors.bgDark,
       body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            _buildHeader(),
-
-            // Suggested goals (first time)
-            if (_messages.length <= 1) _buildGoalSuggestions(),
-
-            // Messages
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: EdgeInsets.symmetric(
-                  horizontal: isWide ? 80 : AppSpacing.lg,
-                  vertical: AppSpacing.md,
-                ),
-                itemCount: _messages.length + (_isTyping ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == _messages.length) return _TypingIndicator();
-                  return _MessageBubble(message: _messages[index]);
-                },
-              ),
-            ),
-
-            // Input
-            _buildInput(isWide),
-          ],
+        child: careerDnaAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(
+            child: Text('Failed to load your profile: $e', style: AppTextStyles.bodyMedium),
+          ),
+          data: (dna) => _ChatBody(
+            dna: dna,
+            msgController: _msgController,
+            scrollController: _scrollController,
+            onSend: (text) => _sendMessage(dna, text),
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _ChatBody extends ConsumerWidget {
+  final Map<String, dynamic> dna;
+  final TextEditingController msgController;
+  final ScrollController scrollController;
+  final void Function(String) onSend;
+
+  const _ChatBody({
+    required this.dna,
+    required this.msgController,
+    required this.scrollController,
+    required this.onSend,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final size = MediaQuery.of(context).size;
+    final isWide = size.width > 900;
+    final state = ref.watch(careerTwinProvider((dna: dna, lang: 'en')));
+
+    return Column(
+      children: [
+        _buildHeader(),
+        if (state.messages.isEmpty) _buildGoalSuggestions(),
+        Expanded(
+          child: state.messages.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.xl),
+                    child: Text(
+                      'Ask your Career Twin about scholarships, exams, or your career path.',
+                      style: AppTextStyles.bodyMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                )
+              : ListView.builder(
+                  controller: scrollController,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isWide ? 80 : AppSpacing.lg,
+                    vertical: AppSpacing.md,
+                  ),
+                  itemCount: state.messages.length + (state.isThinking ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == state.messages.length) return const _TypingIndicator();
+                    return _MessageBubble(message: state.messages[index], onActionTap: onSend);
+                  },
+                ),
+        ),
+        if (state.error != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 4),
+            child: Text(state.error!, style: AppTextStyles.caption.copyWith(color: AppColors.error)),
+          ),
+        _buildInput(isWide),
+      ],
     );
   }
 
@@ -144,17 +161,6 @@ class _CareerTwinScreenState extends State<CareerTwinScreen> {
             ),
           ],
         ),
-        const Spacer(),
-        IconButton(
-          icon: const Icon(Icons.history_outlined, color: AppColors.textSecondary),
-          onPressed: () {},
-          tooltip: 'Conversation history',
-        ),
-        IconButton(
-          icon: const Icon(Icons.auto_fix_high, color: AppColors.accent),
-          onPressed: () {},
-          tooltip: 'Generate roadmap',
-        ),
       ],
     ),
   );
@@ -174,7 +180,7 @@ class _CareerTwinScreenState extends State<CareerTwinScreen> {
         ].map((suggestion) => Padding(
           padding: const EdgeInsets.only(right: 8),
           child: GestureDetector(
-            onTap: () => _sendMessage(suggestion),
+            onTap: () => onSend(suggestion),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -205,7 +211,7 @@ class _CareerTwinScreenState extends State<CareerTwinScreen> {
       children: [
         Expanded(
           child: TextField(
-            controller: _msgController,
+            controller: msgController,
             maxLines: null,
             keyboardType: TextInputType.multiline,
             style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
@@ -222,12 +228,8 @@ class _CareerTwinScreenState extends State<CareerTwinScreen> {
               filled: true,
               fillColor: AppColors.bgCard,
               contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.mic_outlined, color: AppColors.textMuted),
-                onPressed: () {},
-              ),
             ),
-            onSubmitted: _sendMessage,
+            onSubmitted: onSend,
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
@@ -243,7 +245,7 @@ class _CareerTwinScreenState extends State<CareerTwinScreen> {
             ],
           ),
           child: IconButton(
-            onPressed: () => _sendMessage(_msgController.text),
+            onPressed: () => onSend(msgController.text),
             icon: const Icon(Icons.send_rounded, color: Colors.white),
             padding: const EdgeInsets.all(14),
           ),
@@ -254,12 +256,14 @@ class _CareerTwinScreenState extends State<CareerTwinScreen> {
 }
 
 class _MessageBubble extends StatelessWidget {
-  final _ChatMessage message;
-  const _MessageBubble({required this.message});
+  final ChatMessage message;
+  final void Function(String) onActionTap;
+  const _MessageBubble({required this.message, required this.onActionTap});
 
   @override
   Widget build(BuildContext context) {
-    if (message.isAI) {
+    final isAI = message.role == 'assistant';
+    if (isAI) {
       return Padding(
         padding: const EdgeInsets.only(bottom: AppSpacing.lg),
         child: Row(
@@ -287,7 +291,7 @@ class _MessageBubble extends StatelessWidget {
                       bottomRight: Radius.circular(20),
                     ),
                     child: Text(
-                      message.text,
+                      message.content,
                       style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
                     ),
                   ),
@@ -296,23 +300,26 @@ class _MessageBubble extends StatelessWidget {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: message.actions.map((action) => GestureDetector(
-                        onTap: () {},
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(colors: AppColors.primaryGradient),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            action,
-                            style: AppTextStyles.caption.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
+                      children: message.actions.map((action) {
+                        final label = action['label']?.toString() ?? action.toString();
+                        return GestureDetector(
+                          onTap: () => onActionTap(label),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(colors: AppColors.primaryGradient),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              label,
+                              style: AppTextStyles.caption.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
-                      )).toList(),
+                        );
+                      }).toList(),
                     ),
                   ],
                 ],
@@ -340,7 +347,7 @@ class _MessageBubble extends StatelessWidget {
               ),
             ),
             child: Text(
-              message.text,
+              message.content,
               style: AppTextStyles.bodyMedium.copyWith(color: Colors.white),
             ),
           ),
@@ -351,6 +358,8 @@ class _MessageBubble extends StatelessWidget {
 }
 
 class _TypingIndicator extends StatelessWidget {
+  const _TypingIndicator();
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -390,18 +399,4 @@ class _TypingIndicator extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ChatMessage {
-  final bool isAI;
-  final String text;
-  final List<String> actions;
-  final DateTime timestamp;
-
-  _ChatMessage({
-    required this.isAI,
-    required this.text,
-    this.actions = const [],
-    required this.timestamp,
-  });
 }

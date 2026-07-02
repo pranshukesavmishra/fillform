@@ -2,20 +2,17 @@
 FillFormAI - Auth Service
 Handles: Registration, Login (Phone OTP / Google / Email), JWT, Refresh tokens, Aadhaar verification
 """
+
 import hashlib
 import hmac
 import logging
 import random
-import secrets
 import string
 from datetime import datetime, timedelta, timezone
-from typing import Optional
-import uuid
 
 import httpx
-from fastapi import FastAPI, Depends, HTTPException, status, Request, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from passlib.context import CryptContext
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,9 +28,12 @@ from backend.shared.middleware.auth import (
 from backend.shared.utils.events import publish_event, Event, EventTopic
 from backend.services.auth_service.models import User, OTPRecord, RefreshToken, UserRole
 from backend.services.auth_service.schemas import (
-    PhoneOTPRequest, PhoneOTPVerify, GoogleOAuthRequest,
-    TokenResponse, RefreshTokenRequest, UserResponse,
-    DigiLockerCallbackRequest, RegisterRequest,
+    PhoneOTPRequest,
+    PhoneOTPVerify,
+    GoogleOAuthRequest,
+    TokenResponse,
+    RefreshTokenRequest,
+    UserResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -95,7 +95,11 @@ async def send_sms_otp(phone: str, otp: str, purpose: str) -> None:
                 resp = await client.post(
                     f"https://api.twilio.com/2010-04-01/Accounts/{settings.TWILIO_ACCOUNT_SID}/Messages.json",
                     auth=(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN),
-                    data={"From": settings.TWILIO_PHONE_NUMBER, "To": f"+91{phone}", "Body": message},
+                    data={
+                        "From": settings.TWILIO_PHONE_NUMBER,
+                        "To": f"+91{phone}",
+                        "Body": message,
+                    },
                 )
                 resp.raise_for_status()
         except Exception as e:
@@ -123,20 +127,22 @@ async def send_otp(
             and_(
                 OTPRecord.phone == body.phone,
                 OTPRecord.purpose == body.purpose,
-                OTPRecord.is_used == False,
+                ~OTPRecord.is_used,
             )
         )
     )
     for record in existing.scalars().all():
         record.is_used = True
 
-    db.add(OTPRecord(
-        phone=body.phone,
-        otp_hash=otp_hash,
-        purpose=body.purpose,
-        expires_at=expires_at,
-        ip_address=request.client.host if request.client else None,
-    ))
+    db.add(
+        OTPRecord(
+            phone=body.phone,
+            otp_hash=otp_hash,
+            purpose=body.purpose,
+            expires_at=expires_at,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
     await db.commit()
 
     background_tasks.add_task(send_sms_otp, body.phone, otp, body.purpose)
@@ -151,25 +157,34 @@ async def verify_otp(
     now = datetime.now(timezone.utc)
 
     otp_record = await db.scalar(
-        select(OTPRecord).where(
+        select(OTPRecord)
+        .where(
             and_(
                 OTPRecord.phone == body.phone,
-                OTPRecord.is_used == False,
+                ~OTPRecord.is_used,
                 OTPRecord.expires_at > now,
             )
-        ).order_by(OTPRecord.created_at.desc())
+        )
+        .order_by(OTPRecord.created_at.desc())
     )
 
     if not otp_record:
-        raise HTTPException(status_code=400, detail="OTP expired or not found. Request a new one.")
+        raise HTTPException(
+            status_code=400, detail="OTP expired or not found. Request a new one."
+        )
 
     if otp_record.attempts >= 3:
-        raise HTTPException(status_code=429, detail="Too many attempts. Request a new OTP.")
+        raise HTTPException(
+            status_code=429, detail="Too many attempts. Request a new OTP."
+        )
 
     if not verify_otp_hash(body.otp, body.phone, otp_record.otp_hash):
         otp_record.attempts += 1
         await db.commit()
-        raise HTTPException(status_code=400, detail=f"Invalid OTP. {3 - otp_record.attempts} attempts remaining.")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid OTP. {3 - otp_record.attempts} attempts remaining.",
+        )
 
     otp_record.is_used = True
 
@@ -197,20 +212,24 @@ async def verify_otp(
 
     # Store refresh token
     token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
-    db.add(RefreshToken(
-        user_id=user.id,
-        token_hash=token_hash,
-        expires_at=now + timedelta(days=settings.JWT_REFRESH_EXPIRE_DAYS),
-    ))
+    db.add(
+        RefreshToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=now + timedelta(days=settings.JWT_REFRESH_EXPIRE_DAYS),
+        )
+    )
     await db.commit()
 
     if is_new_user:
-        await publish_event(Event(
-            topic=EventTopic.STUDENT_REGISTERED,
-            event_type="student.registered",
-            payload={"user_id": str(user.id), "phone": user.phone},
-            source_service="auth_service",
-        ))
+        await publish_event(
+            Event(
+                topic=EventTopic.STUDENT_REGISTERED,
+                event_type="student.registered",
+                payload={"user_id": str(user.id), "phone": user.phone},
+                source_service="auth_service",
+            )
+        )
 
     return TokenResponse(
         access_token=access_token,
@@ -242,9 +261,7 @@ async def google_login(body: GoogleOAuthRequest, db: AsyncSession = Depends(get_
 
     user = await db.scalar(
         select(User).where(User.google_id == google_id)
-    ) or await db.scalar(
-        select(User).where(User.email == email)
-    )
+    ) or await db.scalar(select(User).where(User.email == email))
 
     is_new = user is None
     if is_new:
@@ -287,7 +304,7 @@ async def refresh_token(body: RefreshTokenRequest, db: AsyncSession = Depends(ge
         select(RefreshToken).where(
             and_(
                 RefreshToken.token_hash == token_hash,
-                RefreshToken.is_revoked == False,
+                not RefreshToken.is_revoked,
                 RefreshToken.expires_at > datetime.now(timezone.utc),
             )
         )
@@ -302,11 +319,14 @@ async def refresh_token(body: RefreshTokenRequest, db: AsyncSession = Depends(ge
     record.is_revoked = True
     new_refresh = create_refresh_token(str(user.id))
     new_token_hash = hashlib.sha256(new_refresh.encode()).hexdigest()
-    db.add(RefreshToken(
-        user_id=user.id,
-        token_hash=new_token_hash,
-        expires_at=datetime.now(timezone.utc) + timedelta(days=settings.JWT_REFRESH_EXPIRE_DAYS),
-    ))
+    db.add(
+        RefreshToken(
+            user_id=user.id,
+            token_hash=new_token_hash,
+            expires_at=datetime.now(timezone.utc)
+            + timedelta(days=settings.JWT_REFRESH_EXPIRE_DAYS),
+        )
+    )
     await db.commit()
 
     return TokenResponse(

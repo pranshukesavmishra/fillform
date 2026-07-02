@@ -3,15 +3,14 @@ Career Twin Agent
 A stateful, multi-turn AI agent that acts as each student's personal career manager.
 Uses LangChain with Claude (primary) + GPT-4o (fallback) + Redis for conversation memory.
 """
+
 import json
 import logging
 import uuid
 from datetime import datetime, timezone
 from typing import AsyncGenerator, Optional
-import asyncio
 
 from anthropic import AsyncAnthropic
-import redis.asyncio as aioredis
 
 from backend.shared.config.settings import settings
 from backend.shared.database import get_redis
@@ -81,7 +80,9 @@ class ConversationMemory:
             return json.loads(data)
         return []
 
-    async def add_messages(self, conversation_id: str, user_msg: str, assistant_msg: str):
+    async def add_messages(
+        self, conversation_id: str, user_msg: str, assistant_msg: str
+    ):
         redis = await get_redis()
         key = f"career_twin:history:{conversation_id}"
         history = await self.get_history(conversation_id)
@@ -89,7 +90,7 @@ class ConversationMemory:
         history.append({"role": "assistant", "content": assistant_msg})
         # Keep only recent messages (sliding window)
         if len(history) > self.max_messages * 2:
-            history = history[-(self.max_messages * 2):]
+            history = history[-(self.max_messages * 2) :]
         await redis.setex(key, 86400 * 30, json.dumps(history))  # 30-day TTL
 
     async def clear(self, conversation_id: str):
@@ -141,7 +142,11 @@ Current date: {datetime.now(timezone.utc).strftime("%B %d, %Y")}
             lines.append(f"Active Applications: {len(dna['active_applications'])}")
         if dna.get("skills"):
             lines.append(f"Skills: {', '.join(dna['skills'][:5])}")
-        return "\n".join(lines) if lines else "Profile incomplete — help student build their profile."
+        return (
+            "\n".join(lines)
+            if lines
+            else "Profile incomplete — help student build their profile."
+        )
 
     async def chat(
         self,
@@ -239,7 +244,8 @@ Format as structured JSON with keys: opportunities, daily_action, insight, deadl
         try:
             # Try to parse structured response
             import re
-            json_match = re.search(r'\{.*\}', response["reply"], re.DOTALL)
+
+            json_match = re.search(r"\{.*\}", response["reply"], re.DOTALL)
             if json_match:
                 return json.loads(json_match.group())
         except Exception:

@@ -1,341 +1,313 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/widgets/glassmorphism_card.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class ApplicationScreen extends StatefulWidget {
+import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/services/ai_service.dart';
+import '../../../../shared/widgets/glassmorphism_card.dart';
+import '../../../opportunities/presentation/providers/opportunities_provider.dart';
+import '../../../profile/presentation/providers/profile_provider.dart';
+
+class ApplicationScreen extends ConsumerStatefulWidget {
   final String opportunityId;
   const ApplicationScreen({super.key, required this.opportunityId});
 
   @override
-  State<ApplicationScreen> createState() => _ApplicationScreenState();
+  ConsumerState<ApplicationScreen> createState() => _ApplicationScreenState();
 }
 
-class _ApplicationScreenState extends State<ApplicationScreen> {
-  int _currentStep = 0;
-  double _aiFilledPercent = 0.0;
-  bool _isAIFilling = false;
+class _ApplicationScreenState extends ConsumerState<ApplicationScreen> {
+  bool _isFilling = false;
+  Map<String, dynamic>? _result;
+  String? _error;
+  String? _portalUrl;
 
   @override
   void initState() {
     super.initState();
-    _simulateAIFill();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _runAutoFill());
   }
 
-  void _simulateAIFill() async {
-    setState(() => _isAIFilling = true);
-    for (int i = 0; i <= 80; i += 5) {
-      await Future.delayed(const Duration(milliseconds: 80));
-      if (mounted) setState(() => _aiFilledPercent = i / 100);
+  Future<void> _runAutoFill() async {
+    setState(() {
+      _isFilling = true;
+      _error = null;
+    });
+    try {
+      final opportunity =
+          await ref.read(opportunityDetailProvider(widget.opportunityId).future);
+      final portalUrl = opportunity.portalUrl;
+      _portalUrl = portalUrl;
+      if (portalUrl == null || portalUrl.isEmpty) {
+        setState(() {
+          _isFilling = false;
+          _error = 'This opportunity has no linked application portal yet.';
+        });
+        return;
+      }
+
+      final careerDna = await ref.read(careerDnaProvider.future);
+      final result = await ref.read(aiServiceProvider).autoFillForm(
+            portalUrl: portalUrl,
+            careerDna: careerDna,
+            opportunityId: widget.opportunityId,
+          );
+      setState(() {
+        _result = result;
+        _isFilling = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isFilling = false;
+        _error = 'Auto-fill failed: $e';
+      });
     }
-    setState(() => _isAIFilling = false);
   }
 
   @override
   Widget build(BuildContext context) {
+    final opportunityAsync = ref.watch(opportunityDetailProvider(widget.opportunityId));
+
     return Scaffold(
       backgroundColor: AppColors.bgDark,
       appBar: AppBar(
-        title: const Text('Apply: PM Scholarship 2024'),
-        actions: [
-          TextButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.save_outlined, size: 16),
-            label: const Text('Save Draft'),
+        title: Text(
+          opportunityAsync.maybeWhen(
+            data: (o) => 'Apply: ${o.title}',
+            orElse: () => 'Apply',
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // AI fill banner
-          if (_isAIFilling || _aiFilledPercent > 0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppColors.primary.withOpacity(0.2), AppColors.bgCard],
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.smart_toy_outlined, color: AppColors.primaryLight, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _isAIFilling
-                              ? 'AI is filling your form...'
-                              : 'AI filled ${(_aiFilledPercent * 100).toInt()}% of fields',
-                          style: AppTextStyles.bodyMedium.copyWith(color: AppColors.primaryLight),
-                        ),
-                        const SizedBox(height: 4),
-                        LinearProgressIndicator(
-                          value: _aiFilledPercent,
-                          backgroundColor: AppColors.divider,
-                          valueColor: const AlwaysStoppedAnimation(AppColors.primaryLight),
-                          borderRadius: BorderRadius.circular(2),
-                          minHeight: 4,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ).animate().fadeIn(),
-
-          // Form content
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Steps sidebar
-                if (MediaQuery.of(context).size.width > 700)
-                  _StepsSidebar(currentStep: _currentStep),
-
-                // Form fields
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(AppSpacing.xl),
-                    child: _FormStep(
-                      step: _currentStep,
-                      aiFilledPercent: _aiFilledPercent,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Bottom actions
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: AppColors.divider)),
-            ),
-            child: Row(
-              children: [
-                if (_currentStep > 0)
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => setState(() => _currentStep--),
-                      child: const Text('← Previous'),
-                    ),
-                  ),
-                if (_currentStep > 0) const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  flex: 2,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (_currentStep < 3) {
-                        setState(() => _currentStep++);
-                      }
-                    },
-                    child: Text(_currentStep < 3 ? 'Next →' : 'Submit Application'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StepsSidebar extends StatelessWidget {
-  final int currentStep;
-  const _StepsSidebar({required this.currentStep});
-
-  @override
-  Widget build(BuildContext context) {
-    final steps = ['Personal Info', 'Education', 'Documents', 'Review'];
-    return Container(
-      width: 220,
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: const BoxDecoration(
-        border: Border(right: BorderSide(color: AppColors.divider)),
-      ),
-      child: Column(
-        children: steps.asMap().entries.map((e) => _StepItem(
-          label: e.value,
-          index: e.key,
-          currentStep: currentStep,
-        )).toList(),
-      ),
-    );
-  }
-}
-
-class _StepItem extends StatelessWidget {
-  final String label;
-  final int index;
-  final int currentStep;
-  const _StepItem({required this.label, required this.index, required this.currentStep});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDone = index < currentStep;
-    final isCurrent = index == currentStep;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-      child: Row(
-        children: [
-          Container(
-            width: 28, height: 28,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isDone ? AppColors.success : isCurrent ? AppColors.primary : AppColors.bgCardLight,
-              border: isCurrent ? Border.all(color: AppColors.primaryLight, width: 2) : null,
-            ),
-            child: Center(
-              child: isDone
-                  ? const Icon(Icons.check, color: Colors.white, size: 16)
-                  : Text('${index + 1}', style: AppTextStyles.caption.copyWith(
-                      color: isCurrent ? Colors.white : AppColors.textMuted,
-                    )),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            label,
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: isCurrent ? AppColors.textPrimary : AppColors.textMuted,
-              fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w400,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FormStep extends StatelessWidget {
-  final int step;
-  final double aiFilledPercent;
-  const _FormStep({required this.step, required this.aiFilledPercent});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // AI Confidence badge
-        if (aiFilledPercent > 0)
-          GlassCard(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-            child: Row(
-              children: [
-                const Icon(Icons.verified_outlined, color: AppColors.success, size: 20),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  'AI Auto-filled with 94% accuracy. Review each field carefully.',
-                  style: AppTextStyles.bodyMedium.copyWith(color: AppColors.success),
-                ),
-              ],
-            ),
-          ),
-
-        if (aiFilledPercent > 0) const SizedBox(height: AppSpacing.xl),
-
-        // Form fields
-        _AiFilledField(label: 'Full Name (as per Aadhaar)', value: 'Anshu Kumar Mishra', confidence: 0.99),
-        _AiFilledField(label: "Father's Name", value: 'Rajesh Kumar Mishra', confidence: 0.98),
-        _AiFilledField(label: 'Date of Birth', value: '14/03/2005', confidence: 0.99),
-        _AiFilledField(label: 'Category', value: 'OBC-NCL', confidence: 0.95),
-        _AiFilledField(label: 'Mobile Number', value: '9876543210', confidence: 0.99),
-        _AiFilledField(label: 'Email Address', value: 'anshu@example.com', confidence: 0.95),
-        _AiFilledField(label: 'State', value: 'Uttar Pradesh', confidence: 0.99),
-        _AiFilledField(label: 'District', value: 'Varanasi', confidence: 0.99),
-        _AiFilledField(
-          label: 'Annual Family Income (₹)',
-          value: '',
-          confidence: 0.0,
-          isRequired: true,
-          hint: 'Please enter your annual family income',
         ),
-      ],
+      ),
+      body: _isFilling
+          ? _LoadingState(portalUrl: _portalUrl)
+          : _error != null
+              ? _ErrorState(message: _error!, onRetry: _runAutoFill)
+              : _result == null
+                  ? const SizedBox.shrink()
+                  : _ReviewState(
+                      result: _result!,
+                      portalUrl: _portalUrl,
+                      onRetry: _runAutoFill,
+                    ),
     );
   }
 }
 
-class _AiFilledField extends StatelessWidget {
-  final String label;
-  final String value;
-  final double confidence;
-  final bool isRequired;
-  final String? hint;
-
-  const _AiFilledField({
-    required this.label,
-    required this.value,
-    required this.confidence,
-    this.isRequired = false,
-    this.hint,
-  });
+class _LoadingState extends StatelessWidget {
+  final String? portalUrl;
+  const _LoadingState({this.portalUrl});
 
   @override
   Widget build(BuildContext context) {
-    final isEmpty = value.isEmpty;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(
+            width: 56,
+            height: 56,
+            child: CircularProgressIndicator(strokeWidth: 3),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Text('AI is opening the real application portal…', style: AppTextStyles.titleMedium),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            portalUrl ?? '',
+            style: AppTextStyles.caption,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'This can take up to 30 seconds — it is filling the live form,\nnot a simulation.',
+            style: AppTextStyles.caption,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    ).animate().fadeIn();
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorState({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, color: AppColors.error, size: 48),
+            const SizedBox(height: AppSpacing.md),
+            Text(message, style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
+            const SizedBox(height: AppSpacing.lg),
+            ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReviewState extends StatelessWidget {
+  final Map<String, dynamic> result;
+  final String? portalUrl;
+  final VoidCallback onRetry;
+  const _ReviewState({required this.result, required this.portalUrl, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = (result['steps'] as List? ?? []).cast<Map<String, dynamic>>();
+    final screenshotB64 = result['screenshot_b64'] as String?;
+    final fieldsFilled = result['fields_filled'] as int? ?? 0;
+    final fieldsTotal = result['fields_total'] as int? ?? 0;
+    final needsReview = (result['requires_manual_review'] as List? ?? []).cast<String>();
+    final backendError = result['error'] as String?;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          GlassCard(
+            child: Row(
+              children: [
+                Icon(
+                  fieldsFilled > 0 ? Icons.smart_toy_outlined : Icons.warning_amber_rounded,
+                  color: fieldsFilled > 0 ? AppColors.success : AppColors.warning,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    backendError ??
+                        'AI filled $fieldsFilled of $fieldsTotal fields on the live portal. '
+                            'Nothing was submitted — review below, then finish on the official site.',
+                    style: AppTextStyles.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          if (screenshotB64 != null) ...[
+            Text('Portal screenshot (after auto-fill)', style: AppTextStyles.titleMedium),
+            const SizedBox(height: AppSpacing.sm),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.memory(base64Decode(screenshotB64)),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+          ],
+
+          if (steps.isNotEmpty) ...[
+            Text('Field-by-field report', style: AppTextStyles.titleMedium),
+            const SizedBox(height: AppSpacing.sm),
+            ...steps.map((s) => _StepRow(step: s)),
+            const SizedBox(height: AppSpacing.lg),
+          ],
+
+          if (needsReview.isNotEmpty)
+            GlassCard(
+              borderColor: AppColors.warning,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Needs your attention before submitting:',
+                      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.warning)),
+                  const SizedBox(height: 6),
+                  ...needsReview.map((f) => Text('• $f', style: AppTextStyles.caption)),
+                ],
+              ),
+            ),
+
+          const SizedBox(height: AppSpacing.xl),
           Row(
             children: [
-              Text(label, style: AppTextStyles.labelLarge),
-              if (isRequired)
-                Text(' *', style: AppTextStyles.labelLarge.copyWith(color: AppColors.error)),
-              const Spacer(),
-              if (!isEmpty && confidence > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.smart_toy_outlined, size: 10, color: AppColors.success),
-                      const SizedBox(width: 4),
-                      Text(
-                        'AI ${(confidence * 100).toInt()}%',
-                        style: AppTextStyles.caption.copyWith(color: AppColors.success, fontSize: 10),
-                      ),
-                    ],
-                  ),
+              Expanded(
+                child: OutlinedButton(onPressed: onRetry, child: const Text('Re-run Auto-Fill')),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton.icon(
+                  onPressed: portalUrl == null
+                      ? null
+                      : () => launchUrl(Uri.parse(portalUrl!), mode: LaunchMode.externalApplication),
+                  icon: const Icon(Icons.open_in_new),
+                  label: const Text('Open Portal to Review & Submit'),
+                  style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 18)),
                 ),
+              ),
             ],
           ),
-          const SizedBox(height: 6),
-          TextFormField(
-            initialValue: value,
-            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-            decoration: InputDecoration(
-              hintText: hint,
-              filled: true,
-              fillColor: isEmpty
-                  ? AppColors.error.withOpacity(0.05)
-                  : AppColors.success.withOpacity(0.05),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: isEmpty
-                      ? AppColors.error.withOpacity(0.4)
-                      : AppColors.success.withOpacity(0.3),
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: isEmpty
-                      ? AppColors.error.withOpacity(0.4)
-                      : AppColors.success.withOpacity(0.3),
-                ),
-              ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'FillFormAI never submits government forms on your behalf — '
+            'you always confirm and submit yourself on the official portal.',
+            style: AppTextStyles.caption,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepRow extends StatelessWidget {
+  final Map<String, dynamic> step;
+  const _StepRow({required this.step});
+
+  @override
+  Widget build(BuildContext context) {
+    final status = step['status'] as String? ?? '';
+    final label = step['label'] as String? ?? '';
+    final value = step['value'] as String?;
+    final note = step['note'] as String? ?? '';
+
+    final IconData icon;
+    final Color color;
+    switch (status) {
+      case 'filled':
+        icon = Icons.check_circle;
+        color = AppColors.success;
+        break;
+      case 'needs_review':
+        icon = Icons.error_outline;
+        color = AppColors.warning;
+        break;
+      case 'failed':
+        icon = Icons.cancel_outlined;
+        color = AppColors.error;
+        break;
+      default:
+        icon = Icons.remove_circle_outline;
+        color = AppColors.textMuted;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: AppTextStyles.bodyMedium),
+                if (value != null && value.isNotEmpty)
+                  Text(value, style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary)),
+                if (note.isNotEmpty) Text(note, style: AppTextStyles.caption),
+              ],
             ),
           ),
         ],

@@ -1,6 +1,6 @@
 from sqlalchemy import String, Float, Boolean, Text, Integer, Date, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from backend.shared.models.base import BaseModel
 from enum import Enum
 import uuid
@@ -13,7 +13,7 @@ class OpportunityCategory(str, Enum):
     FELLOWSHIP = "fellowship"
     INTERNSHIP = "internship"
     EXAM = "exam"
-    SKILL_TRAINING = "skill_training"
+    SKILL_TRAINING = "skill_program"
     LOAN = "loan"
 
 
@@ -30,7 +30,16 @@ class Opportunity(BaseModel):
     title: Mapped[str] = mapped_column(String(500), nullable=False, index=True)
     short_description: Mapped[str] = mapped_column(String(1000), nullable=True)
     full_description: Mapped[str] = mapped_column(Text, nullable=True)
-    category: Mapped[str] = mapped_column(SAEnum(OpportunityCategory), nullable=False, index=True)
+    category: Mapped[str] = mapped_column(
+        SAEnum(
+            OpportunityCategory,
+            native_enum=False,
+            values_callable=lambda enum_cls: [e.value for e in enum_cls],
+            length=50,
+        ),
+        nullable=False,
+        index=True,
+    )
     subcategory: Mapped[str] = mapped_column(String(100), nullable=True)
     issuing_authority: Mapped[str] = mapped_column(String(255), nullable=True)
     portal_url: Mapped[str] = mapped_column(Text, nullable=True)
@@ -48,7 +57,15 @@ class Opportunity(BaseModel):
 
     # Status
     status: Mapped[str] = mapped_column(
-        SAEnum(OpportunityStatus), default=OpportunityStatus.ACTIVE, nullable=False, index=True
+        SAEnum(
+            OpportunityStatus,
+            native_enum=False,
+            values_callable=lambda enum_cls: [e.value for e in enum_cls],
+            length=20,
+        ),
+        default=OpportunityStatus.ACTIVE,
+        nullable=False,
+        index=True,
     )
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     verification_confidence: Mapped[float] = mapped_column(Float, default=0.0)
@@ -85,23 +102,49 @@ class Opportunity(BaseModel):
 
     # Metadata
     tags: Mapped[list] = mapped_column(JSONB, default=list)
-    source: Mapped[str] = mapped_column(String(100), nullable=True)  # scraped | manual | api
+    source: Mapped[str] = mapped_column(
+        String(100), nullable=True
+    )  # scraped | manual | api
     last_scraped_at: Mapped[str] = mapped_column(String(50), nullable=True)
-    form_schema: Mapped[dict] = mapped_column(JSONB, default=dict)  # extracted form fields
+    form_schema: Mapped[dict] = mapped_column(
+        JSONB, default=dict
+    )  # extracted form fields
     raw_content: Mapped[str] = mapped_column(Text, nullable=True)
+
+    # Legacy columns kept for compatibility with application_service/agent_service,
+    # which query opportunities with raw SQL against the original simple schema.
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+    amount: Mapped[int] = mapped_column(Integer, nullable=True)
+    eligibility_criteria: Mapped[dict] = mapped_column(JSONB, default=dict)
+    state: Mapped[str] = mapped_column(String(100), nullable=True)
+    level: Mapped[str] = mapped_column(String(20), nullable=True)
+    source_url: Mapped[str] = mapped_column(String(500), nullable=True)
+    eligibility_summary: Mapped[list] = mapped_column(JSONB, default=list)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    max_applications: Mapped[int] = mapped_column(Integer, nullable=True)
 
 
 class OpportunityView(BaseModel):
     __tablename__ = "opportunity_views"
 
-    opportunity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
-    source: Mapped[str] = mapped_column(String(50), nullable=True)  # search | recommendation | notification
+    opportunity_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True
+    )
+    source: Mapped[str] = mapped_column(
+        String(50), nullable=True
+    )  # search | recommendation | notification
 
 
 class OpportunitySave(BaseModel):
     __tablename__ = "opportunity_saves"
 
-    opportunity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    opportunity_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True
+    )
     notes: Mapped[str] = mapped_column(Text, nullable=True)

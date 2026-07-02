@@ -259,7 +259,7 @@ class AppTheme {
         labelStyle: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary),
       ),
 
-      cardTheme: CardThemeData(
+      cardTheme: CardTheme(
         color: AppColors.bgCard,
         elevation: 0,
         shape: RoundedRectangleBorder(

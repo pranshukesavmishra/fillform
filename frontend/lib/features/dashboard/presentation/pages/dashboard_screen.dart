@@ -1,37 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:percent_indicator/percent_indicator.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/glassmorphism_card.dart';
+import '../../../applications/presentation/providers/applications_provider.dart';
+import '../../../notifications/presentation/providers/notifications_provider.dart';
+import '../../../opportunities/presentation/providers/opportunities_provider.dart';
+import '../../../profile/presentation/providers/profile_provider.dart';
+import '../providers/dashboard_provider.dart';
 import '../widgets/opportunity_mini_card.dart';
 import '../widgets/career_twin_bubble.dart';
 import '../widgets/trust_score_ring.dart';
 import '../widgets/deadline_timeline.dart';
 import '../widgets/daily_briefing_card.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
-  // Mock data — replace with Riverpod providers
-  final String studentName = 'Anshu';
-  final int trustScore = 72;
-  final int activeApplications = 3;
-  final int savedOpportunities = 12;
-  final double profileCompleteness = 0.78;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final size = MediaQuery.of(context).size;
     final isWide = size.width > 1100;
-    final isMedium = size.width > 700;
+
+    final profileAsync = ref.watch(profileProvider);
+    final profileStatsAsync = ref.watch(profileStatsProvider);
+    final applicationStatsAsync = ref.watch(applicationStatsProvider);
+
+    final studentName = profileAsync.maybeWhen(
+      data: (u) => u.displayName,
+      orElse: () => '',
+    );
+    final completeness = profileAsync.maybeWhen(
+      data: (u) => u.completeness,
+      orElse: () => 0.0,
+    );
+    final activeDocuments = profileStatsAsync.maybeWhen(
+      data: (s) => (s['active_documents'] as num?)?.toInt() ?? 0,
+      orElse: () => 0,
+    );
+    final activeApplications = applicationStatsAsync.maybeWhen(
+      data: (s) => (s['total'] as num?)?.toInt() ?? 0,
+      orElse: () => 0,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.bgDark,
@@ -47,7 +59,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               SliverToBoxAdapter(
                 child: _DashboardAppBar(
                   studentName: studentName,
-                  trustScore: trustScore,
+                  trustScore: (completeness * 100).round(),
                 ),
               ),
 
@@ -70,16 +82,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 sliver: SliverToBoxAdapter(
                   child: isWide
                       ? _StatsRowWide(
-                          trustScore: trustScore,
                           activeApplications: activeApplications,
-                          savedOpportunities: savedOpportunities,
-                          profileCompleteness: profileCompleteness,
+                          activeDocuments: activeDocuments,
+                          profileCompleteness: completeness,
                         )
                       : _StatsRowCompact(
-                          trustScore: trustScore,
                           activeApplications: activeApplications,
-                          savedOpportunities: savedOpportunities,
-                          profileCompleteness: profileCompleteness,
+                          activeDocuments: activeDocuments,
+                          profileCompleteness: completeness,
                         ),
                 ),
               ),
@@ -91,8 +101,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                 sliver: SliverToBoxAdapter(
                   child: isWide
-                      ? _WideLayout()
-                      : _CompactLayout(),
+                      ? const _WideLayout()
+                      : const _CompactLayout(),
                 ),
               ),
 
@@ -114,14 +124,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 // ── App Bar ───────────────────────────────────────────────────────────────────
-class _DashboardAppBar extends StatelessWidget {
+class _DashboardAppBar extends ConsumerWidget {
   final String studentName;
   final int trustScore;
 
   const _DashboardAppBar({required this.studentName, required this.trustScore});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unreadCount = ref.watch(notificationsProvider).maybeWhen(
+      data: (data) => (data['unread_count'] as num?)?.toInt() ?? 0,
+      orElse: () => 0,
+    );
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
@@ -154,31 +168,35 @@ class _DashboardAppBar extends StatelessWidget {
             const SizedBox(width: AppSpacing.md),
 
             // Notification bell
-            Stack(
-              children: [
-                GlassCard(
-                  padding: const EdgeInsets.all(12),
-                  showShadow: false,
-                  child: const Icon(
-                    Icons.notifications_outlined,
-                    color: AppColors.textPrimary,
-                    size: 22,
-                  ),
-                ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: AppColors.accent,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.bgDark, width: 2),
+            GestureDetector(
+              onTap: () => context.go('/notifications'),
+              child: Stack(
+                children: [
+                  GlassCard(
+                    padding: const EdgeInsets.all(12),
+                    showShadow: false,
+                    child: const Icon(
+                      Icons.notifications_outlined,
+                      color: AppColors.textPrimary,
+                      size: 22,
                     ),
                   ),
-                ),
-              ],
+                  if (unreadCount > 0)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: AppColors.accent,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.bgDark, width: 2),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ],
         ),
@@ -196,15 +214,13 @@ class _DashboardAppBar extends StatelessWidget {
 
 // ── Stats ──────────────────────────────────────────────────────────────────────
 class _StatsRowWide extends StatelessWidget {
-  final int trustScore;
   final int activeApplications;
-  final int savedOpportunities;
+  final int activeDocuments;
   final double profileCompleteness;
 
   const _StatsRowWide({
-    required this.trustScore,
     required this.activeApplications,
-    required this.savedOpportunities,
+    required this.activeDocuments,
     required this.profileCompleteness,
   });
 
@@ -214,16 +230,16 @@ class _StatsRowWide extends StatelessWidget {
       children: [
         Expanded(child: _StatCard(
           value: '$activeApplications',
-          label: 'Active Applications',
+          label: 'Applications',
           icon: Icons.assignment_outlined,
           gradient: AppColors.primaryGradient,
           delay: 0,
         )),
         const SizedBox(width: AppSpacing.md),
         Expanded(child: _StatCard(
-          value: '$savedOpportunities',
-          label: 'Saved Opportunities',
-          icon: Icons.bookmark_outline,
+          value: '$activeDocuments',
+          label: 'Documents on File',
+          icon: Icons.folder_outlined,
           gradient: [const Color(0xFF7C3AED), const Color(0xFFEC4899)],
           delay: 100,
         )),
@@ -235,29 +251,19 @@ class _StatsRowWide extends StatelessWidget {
           gradient: AppColors.successGradient,
           delay: 200,
         )),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(child: _StatCard(
-          value: '₹2.4L',
-          label: 'Eligible Value',
-          icon: Icons.monetization_on_outlined,
-          gradient: AppColors.goldGradient,
-          delay: 300,
-        )),
       ],
     );
   }
 }
 
 class _StatsRowCompact extends StatelessWidget {
-  final int trustScore;
   final int activeApplications;
-  final int savedOpportunities;
+  final int activeDocuments;
   final double profileCompleteness;
 
   const _StatsRowCompact({
-    required this.trustScore,
     required this.activeApplications,
-    required this.savedOpportunities,
+    required this.activeDocuments,
     required this.profileCompleteness,
   });
 
@@ -271,10 +277,9 @@ class _StatsRowCompact extends StatelessWidget {
       mainAxisSpacing: AppSpacing.md,
       childAspectRatio: 1.8,
       children: [
-        _StatCard(value: '$activeApplications', label: 'Active', icon: Icons.assignment_outlined, gradient: AppColors.primaryGradient, delay: 0),
-        _StatCard(value: '$savedOpportunities', label: 'Saved', icon: Icons.bookmark_outline, gradient: [const Color(0xFF7C3AED), const Color(0xFFEC4899)], delay: 100),
+        _StatCard(value: '$activeApplications', label: 'Applications', icon: Icons.assignment_outlined, gradient: AppColors.primaryGradient, delay: 0),
+        _StatCard(value: '$activeDocuments', label: 'Documents', icon: Icons.folder_outlined, gradient: [const Color(0xFF7C3AED), const Color(0xFFEC4899)], delay: 100),
         _StatCard(value: '${(profileCompleteness * 100).toInt()}%', label: 'Profile', icon: Icons.person_outline, gradient: AppColors.successGradient, delay: 200),
-        _StatCard(value: '₹2.4L', label: 'Eligible', icon: Icons.monetization_on_outlined, gradient: AppColors.goldGradient, delay: 300),
       ],
     );
   }
@@ -331,6 +336,8 @@ class _StatCard extends StatelessWidget {
 
 // ── Wide Layout ───────────────────────────────────────────────────────────────
 class _WideLayout extends StatelessWidget {
+  const _WideLayout();
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -369,6 +376,8 @@ class _WideLayout extends StatelessWidget {
 }
 
 class _CompactLayout extends StatelessWidget {
+  const _CompactLayout();
+
   @override
   Widget build(BuildContext context) {
     return const Column(
@@ -384,37 +393,12 @@ class _CompactLayout extends StatelessWidget {
 }
 
 // ── Top Opportunities ─────────────────────────────────────────────────────────
-class _TopOpportunitiesSection extends StatelessWidget {
+class _TopOpportunitiesSection extends ConsumerWidget {
   const _TopOpportunitiesSection();
 
   @override
-  Widget build(BuildContext context) {
-    final mockOpportunities = [
-      {
-        'title': 'PM Scholarship Scheme 2024',
-        'amount': '₹36,000',
-        'deadline': '15 Nov',
-        'probability': 0.78,
-        'category': 'Scholarship',
-        'isNew': true,
-      },
-      {
-        'title': 'UP Mukhyamantri Scholarship',
-        'amount': '₹25,000',
-        'deadline': '30 Nov',
-        'probability': 0.85,
-        'category': 'State Scholarship',
-        'isNew': false,
-      },
-      {
-        'title': 'AICTE Pragati Scholarship',
-        'amount': '₹50,000',
-        'deadline': '8 Dec',
-        'probability': 0.62,
-        'category': 'Central Govt',
-        'isNew': true,
-      },
-    ];
+  Widget build(BuildContext context, WidgetRef ref) {
+    final opportunitiesAsync = ref.watch(opportunitiesProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -444,13 +428,39 @@ class _TopOpportunitiesSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.md),
-        ...mockOpportunities.asMap().entries.map(
-          (e) => Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.md),
-            child: OpportunityMiniCard(
-              data: e.value,
-              index: e.key,
-            ),
+        opportunitiesAsync.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+            child: Text('Failed to load opportunities', style: AppTextStyles.bodyMedium),
+          ),
+          data: (opportunities) => Column(
+            children: opportunities.take(3).toList().asMap().entries.map(
+              (e) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: OpportunityMiniCard(
+                  data: {
+                    'id': e.value.id,
+                    'title': e.value.title,
+                    'amount': e.value.amountDisplay,
+                    'deadline': e.value.deadline ?? 'No deadline',
+                    // Real backend difficulty_score (0=hardest, 1=easiest),
+                    // inverted into a "fit" indicator. Not a true per-user AI
+                    // prediction (that needs POST /api/v1/ai/success-probability
+                    // per opportunity) but a real signal, not a fake number.
+                    'probability': 1.0 - (e.value.difficultyScore ?? 0.5),
+                    'category': e.value.categoryLabel,
+                    // No "recently added" timestamp is exposed to the
+                    // frontend yet, so don't fabricate a NEW badge.
+                    'isNew': false,
+                  },
+                  index: e.key,
+                ),
+              ),
+            ).toList(),
           ),
         ),
       ],
@@ -459,22 +469,67 @@ class _TopOpportunitiesSection extends StatelessWidget {
 }
 
 // ── Active Applications ────────────────────────────────────────────────────────
-class _ActiveApplicationsSection extends StatelessWidget {
+class _ActiveApplicationsSection extends ConsumerWidget {
   const _ActiveApplicationsSection();
 
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'approved': return AppColors.success;
+      case 'submitted':
+      case 'under_review': return AppColors.warning;
+      case 'rejected': return AppColors.error;
+      default: return AppColors.textMuted;
+    }
+  }
+
+  double _statusProgress(String status) {
+    switch (status) {
+      case 'approved': return 1.0;
+      case 'submitted': return 0.7;
+      case 'under_review': return 0.85;
+      case 'rejected': return 1.0;
+      default: return 0.3;
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final applicationsAsync = ref.watch(applicationsProvider);
+
     return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Active Applications', style: AppTextStyles.titleLarge),
+          Text('Your Applications', style: AppTextStyles.titleLarge),
           const SizedBox(height: AppSpacing.md),
-          _applicationRow('NSP Scholarship 2024', 0.65, 'In Progress', AppColors.warning),
-          const Divider(height: AppSpacing.xl),
-          _applicationRow('NMMS Examination', 0.90, 'Submitted', AppColors.success),
-          const Divider(height: AppSpacing.xl),
-          _applicationRow('Bihar Mukhyamantri Scholarship', 0.30, 'Draft', AppColors.textMuted),
+          applicationsAsync.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (e, _) => Text('Failed to load applications', style: AppTextStyles.caption),
+            data: (apps) {
+              if (apps.isEmpty) {
+                return Text(
+                  'No applications yet. Apply to an opportunity to see it tracked here.',
+                  style: AppTextStyles.caption,
+                );
+              }
+              final top = apps.take(3).toList();
+              return Column(
+                children: top.asMap().entries.map((e) {
+                  final app = e.value;
+                  final color = _statusColor(app.status);
+                  return Column(
+                    children: [
+                      _applicationRow(app.opportunityTitle, _statusProgress(app.status), app.statusLabel, color),
+                      if (e.key < top.length - 1) const Divider(height: AppSpacing.xl),
+                    ],
+                  );
+                }).toList(),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -487,7 +542,7 @@ class _ActiveApplicationsSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: AppTextStyles.titleMedium),
+              Text(title, style: AppTextStyles.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: AppSpacing.xs),
               LinearProgressIndicator(
                 value: progress,
@@ -517,11 +572,13 @@ class _ActiveApplicationsSection extends StatelessWidget {
 }
 
 // ── Skill Gap ─────────────────────────────────────────────────────────────────
-class _SkillGapSection extends StatelessWidget {
+class _SkillGapSection extends ConsumerWidget {
   const _SkillGapSection();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final skillGapAsync = ref.watch(skillGapProvider);
+
     return GradientCard(
       gradient: const [Color(0xFF1A1835), Color(0xFF231F45)],
       child: Column(
@@ -535,24 +592,39 @@ class _SkillGapSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Get a NIELIT O-Level certificate and unlock 47 more government opportunities worth ₹2.4L',
-            style: AppTextStyles.bodyMedium,
+          skillGapAsync.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              child: SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+            error: (e, _) => Text(
+              'Ask your Career Twin for a personalized skill-gap analysis once the AI service is configured.',
+              style: AppTextStyles.bodyMedium,
+            ),
+            data: (data) {
+              final gaps = (data['gaps'] as List?) ?? [];
+              if (gaps.isEmpty) {
+                return Text(
+                  data['raw']?.toString() ?? 'No skill gaps found — your profile looks strong!',
+                  style: AppTextStyles.bodyMedium,
+                );
+              }
+              final top = gaps.first as Map<String, dynamic>;
+              final skillName = top['skill_name']?.toString() ?? 'a new skill';
+              final unlockCount = top['opportunity_unlock_count'];
+              return Text(
+                'Learn $skillName${unlockCount != null ? " and unlock ~$unlockCount more opportunities" : ""}.',
+                style: AppTextStyles.bodyMedium,
+              );
+            },
           ),
           const SizedBox(height: AppSpacing.md),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () {},
-                  child: const Text('Learn More'),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {},
-                  child: const Text('Start Now →'),
+                  onPressed: () => context.go('/career-twin'),
+                  child: const Text('Ask Career Twin'),
                 ),
               ),
             ],
@@ -564,11 +636,12 @@ class _SkillGapSection extends StatelessWidget {
 }
 
 // ── Career Twin Sidebar ────────────────────────────────────────────────────────
-class _CareerTwinSidebar extends StatelessWidget {
+class _CareerTwinSidebar extends ConsumerWidget {
   const _CareerTwinSidebar();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final briefingAsync = ref.watch(dailyBriefingProvider);
     return NeonCard(
       neonColor: AppColors.primary,
       child: Column(
@@ -610,7 +683,6 @@ class _CareerTwinSidebar extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-          // Mock message
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
@@ -618,9 +690,25 @@ class _CareerTwinSidebar extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.primary.withOpacity(0.2)),
             ),
-            child: Text(
-              '"Anshu, the UP Scholarship portal opens in 8 days. Your success probability is 78%. Want me to start preparing your application?"',
-              style: AppTextStyles.bodyMedium.copyWith(fontStyle: FontStyle.italic),
+            child: briefingAsync.when(
+              loading: () => const SizedBox(
+                height: 16, width: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              error: (e, _) => Text(
+                '"Ask me anything about scholarships, exams, or your career path."',
+                style: AppTextStyles.bodyMedium.copyWith(fontStyle: FontStyle.italic),
+              ),
+              data: (data) {
+                final text = data['insight']?.toString() ??
+                    data['daily_action']?.toString() ??
+                    data['raw']?.toString() ??
+                    'Ask me anything about scholarships, exams, or your career path.';
+                return Text(
+                  '"$text"',
+                  style: AppTextStyles.bodyMedium.copyWith(fontStyle: FontStyle.italic),
+                );
+              },
             ),
           ),
           const SizedBox(height: AppSpacing.md),

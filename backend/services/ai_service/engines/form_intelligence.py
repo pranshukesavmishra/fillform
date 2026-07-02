@@ -4,11 +4,11 @@ Form Intelligence Engine — The Company's Core Moat.
 Understands every form field semantically, maps to student profile,
 validates, and learns from every correction to improve accuracy over time.
 """
+
 import json
 import logging
 import re
 from typing import Optional
-from datetime import date
 
 from anthropic import AsyncAnthropic
 from backend.shared.config.settings import settings
@@ -25,7 +25,6 @@ FIELD_TYPE_MAP = {
     "gender": ["career_dna.gender"],
     "category": ["career_dna.category"],
     "aadhaar": ["career_dna.aadhaar_last4"],
-
     # Contact
     "mobile": ["career_dna.phone"],
     "email": ["career_dna.email"],
@@ -34,7 +33,6 @@ FIELD_TYPE_MAP = {
     "city": ["career_dna.address.city", "career_dna.district"],
     "state": ["career_dna.state"],
     "pincode": ["career_dna.address.pincode"],
-
     # Education
     "education_level": ["career_dna.education_level"],
     "stream": ["career_dna.stream"],
@@ -46,13 +44,11 @@ FIELD_TYPE_MAP = {
     "marks_12th": ["career_dna.marks_12th_percent"],
     "cgpa": ["career_dna.cgpa"],
     "passing_year": ["career_dna.passing_year"],
-
     # Financial
     "family_income": ["career_dna.family_income_annual"],
     "bank_account": ["career_dna.bank.account_number"],
     "bank_ifsc": ["career_dna.bank.ifsc"],
     "bank_name": ["career_dna.bank.bank_name"],
-
     # Documents
     "aadhaar_number": ["career_dna.aadhaar_number"],
     "income_certificate_no": ["career_dna.documents.income_certificate.number"],
@@ -65,30 +61,23 @@ LABEL_TO_TYPE = {
     r"full.?name|applicant.?name|student.?name|name.?of.?student": "full_name",
     r"father.?name|father.?full.?name": "father_name",
     r"mother.?name|mother.?full.?name": "mother_name",
-
     # DOB variants
     r"date.?of.?birth|d\.?o\.?b|birth.?date|जन्म.?तिथि": "dob",
-
     # Contact variants
     r"mobile|phone|contact.?number|whatsapp|मोबाइल": "mobile",
     r"email|e-mail|ईमेल": "email",
-
     # Category variants
     r"category|caste|जाति|वर्ग|sc.?st.?obc": "category",
-
     # Income variants
     r"annual.?income|family.?income|household.?income|वार्षिक.?आय": "family_income",
-
     # Bank variants
     r"bank.?account|account.?number|खाता.?संख्या": "bank_account",
     r"ifsc|ifsc.?code|bank.?code": "bank_ifsc",
     r"bank.?name|name.?of.?bank": "bank_name",
-
     # Marks variants
     r"10th.?marks|class.?10.?marks|matriculation.?marks|tenth.?percent": "marks_10th",
     r"12th.?marks|class.?12.?marks|intermediate.?marks|twelfth.?percent|10\+2": "marks_12th",
     r"cgpa|gpa|cumulative.?grade": "cgpa",
-
     # State/City
     r"state|राज्य": "state",
     r"district|जिला": "city",
@@ -126,6 +115,7 @@ def _format_value(canonical_type: str, raw_value: str, field_config: dict) -> st
     if canonical_type == "dob":
         try:
             from dateutil.parser import parse
+
             dt = parse(raw_value)
             fmt = field_config.get("date_format", "%d/%m/%Y")
             return dt.strftime(fmt)
@@ -185,19 +175,19 @@ async def _llm_classify_field(
     prompt = f"""You are analyzing a government form field to determine what student data to fill in.
 
 Form field:
-- Label: {field.get('label', '')}
-- ID: {field.get('id', '')}
-- Type: {field.get('type', 'text')}
-- Options: {field.get('options', [])}
-- Required: {field.get('required', False)}
-- Max length: {field.get('max_length', 'none')}
-- Placeholder: {field.get('placeholder', '')}
+- Label: {field.get("label", "")}
+- ID: {field.get("id", "")}
+- Type: {field.get("type", "text")}
+- Options: {field.get("options", [])}
+- Required: {field.get("required", False)}
+- Max length: {field.get("max_length", "none")}
+- Placeholder: {field.get("placeholder", "")}
 
 Student profile summary:
-- Name: {career_dna.get('full_name', 'Unknown')}
-- Education: {career_dna.get('education_level', 'Unknown')}
-- State: {career_dna.get('state', 'Unknown')}
-- Category: {career_dna.get('category', 'Unknown')}
+- Name: {career_dna.get("full_name", "Unknown")}
+- Education: {career_dna.get("education_level", "Unknown")}
+- State: {career_dna.get("state", "Unknown")}
+- Category: {career_dna.get("category", "Unknown")}
 
 Task: Determine:
 1. The canonical field type (e.g., "full_name", "dob", "family_income")
@@ -241,7 +231,9 @@ class FormIntelligenceEngine:
             required = field.get("required", False)
 
             # Step 1: Try rule-based classification
-            canonical_type = _classify_field_type(label, field_id, field.get("type", ""))
+            canonical_type = _classify_field_type(
+                label, field_id, field.get("type", "")
+            )
             value = None
             conf = 0.0
 
@@ -263,11 +255,13 @@ class FormIntelligenceEngine:
 
                 # Validate against known rules
                 if field.get("max_length") and len(str(value)) > field["max_length"]:
-                    warnings.append({
-                        "field_id": field_id,
-                        "type": "length_exceeded",
-                        "message": f"Value too long for {label}. Max {field['max_length']} chars.",
-                    })
+                    warnings.append(
+                        {
+                            "field_id": field_id,
+                            "type": "length_exceeded",
+                            "message": f"Value too long for {label}. Max {field['max_length']} chars.",
+                        }
+                    )
             elif required:
                 missing_required.append(field_id)
 
@@ -306,12 +300,14 @@ class FormIntelligenceEngine:
 
             # Required check
             if field.get("required") and not value:
-                critical_errors.append({
-                    "field_id": field_id,
-                    "label": label,
-                    "issue": "Required field is empty",
-                    "severity": "critical",
-                })
+                critical_errors.append(
+                    {
+                        "field_id": field_id,
+                        "label": label,
+                        "issue": "Required field is empty",
+                        "severity": "critical",
+                    }
+                )
                 continue
 
             if not value:
@@ -322,45 +318,70 @@ class FormIntelligenceEngine:
             # Pattern validation
             if pattern := field.get("pattern"):
                 import re as _re
+
                 if not _re.fullmatch(pattern, str_value):
-                    major_errors.append({
-                        "field_id": field_id,
-                        "label": label,
-                        "issue": f"Format mismatch. Expected: {field.get('pattern_description', pattern)}",
-                        "severity": "major",
-                    })
+                    major_errors.append(
+                        {
+                            "field_id": field_id,
+                            "label": label,
+                            "issue": f"Format mismatch. Expected: {field.get('pattern_description', pattern)}",
+                            "severity": "major",
+                        }
+                    )
 
             # Length validation
             if max_len := field.get("max_length"):
                 if len(str_value) > max_len:
-                    major_errors.append({
-                        "field_id": field_id,
-                        "label": label,
-                        "issue": f"Too long ({len(str_value)} chars, max {max_len})",
-                        "severity": "major",
-                    })
+                    major_errors.append(
+                        {
+                            "field_id": field_id,
+                            "label": label,
+                            "issue": f"Too long ({len(str_value)} chars, max {max_len})",
+                            "severity": "major",
+                        }
+                    )
 
             # Type-specific validations
             if field_type == "email" and "@" not in str_value:
-                major_errors.append({"field_id": field_id, "label": label, "issue": "Invalid email", "severity": "major"})
+                major_errors.append(
+                    {
+                        "field_id": field_id,
+                        "label": label,
+                        "issue": "Invalid email",
+                        "severity": "major",
+                    }
+                )
 
             if field_type == "tel":
                 digits = re.sub(r"[^0-9]", "", str_value)
                 if len(digits) not in (10, 12):
-                    major_errors.append({"field_id": field_id, "label": label, "issue": "Invalid phone number", "severity": "major"})
+                    major_errors.append(
+                        {
+                            "field_id": field_id,
+                            "label": label,
+                            "issue": "Invalid phone number",
+                            "severity": "major",
+                        }
+                    )
 
             # Option validation
             if options := field.get("options"):
-                if str_value not in options and str_value.lower() not in [o.lower() for o in options]:
-                    major_errors.append({
-                        "field_id": field_id,
-                        "label": label,
-                        "issue": f"'{str_value}' is not a valid option",
-                        "severity": "major",
-                    })
+                if str_value not in options and str_value.lower() not in [
+                    o.lower() for o in options
+                ]:
+                    major_errors.append(
+                        {
+                            "field_id": field_id,
+                            "label": label,
+                            "issue": f"'{str_value}' is not a valid option",
+                            "severity": "major",
+                        }
+                    )
 
         is_valid = len(critical_errors) == 0 and len(major_errors) == 0
-        confidence = 1.0 - (len(critical_errors) * 0.3 + len(major_errors) * 0.15 + len(warnings) * 0.05)
+        confidence = 1.0 - (
+            len(critical_errors) * 0.3 + len(major_errors) * 0.15 + len(warnings) * 0.05
+        )
 
         return {
             "is_valid": is_valid,

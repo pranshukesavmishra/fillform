@@ -23,8 +23,12 @@ class AuthProvider(str, Enum):
 class User(BaseModel):
     __tablename__ = "users"
 
-    phone: Mapped[str] = mapped_column(String(15), unique=True, nullable=True, index=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=True, index=True)
+    phone: Mapped[str] = mapped_column(
+        String(15), unique=True, nullable=True, index=True
+    )
+    email: Mapped[str] = mapped_column(
+        String(255), unique=True, nullable=True, index=True
+    )
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=True)
     role: Mapped[str] = mapped_column(
@@ -39,7 +43,9 @@ class User(BaseModel):
     aadhaar_last4: Mapped[str] = mapped_column(String(4), nullable=True)
     google_id: Mapped[str] = mapped_column(String(255), nullable=True, unique=True)
     digilocker_id: Mapped[str] = mapped_column(String(255), nullable=True, unique=True)
-    last_login_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_login_at: Mapped[DateTime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     login_count: Mapped[int] = mapped_column(default=0)
     profile_picture_url: Mapped[str] = mapped_column(Text, nullable=True)
     preferred_language: Mapped[str] = mapped_column(String(10), default="en")
@@ -53,8 +59,12 @@ class OTPRecord(BaseModel):
 
     phone: Mapped[str] = mapped_column(String(15), nullable=False, index=True)
     otp_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    purpose: Mapped[str] = mapped_column(String(50), nullable=False)  # login | verify | reset
-    expires_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=False)
+    purpose: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # login | verify | reset
+    expires_at: Mapped[DateTime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     is_used: Mapped[bool] = mapped_column(Boolean, default=False)
     attempts: Mapped[int] = mapped_column(default=0)
     ip_address: Mapped[str] = mapped_column(String(45), nullable=True)
@@ -63,9 +73,13 @@ class OTPRecord(BaseModel):
 class RefreshToken(BaseModel):
     __tablename__ = "refresh_tokens"
 
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True
+    )
     token_hash: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
-    expires_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[DateTime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     is_revoked: Mapped[bool] = mapped_column(Boolean, default=False)
     device_info: Mapped[dict] = mapped_column(JSONB, default=dict)
     ip_address: Mapped[str] = mapped_column(String(45), nullable=True)

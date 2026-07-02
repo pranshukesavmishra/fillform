@@ -1,41 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/models/opportunity_model.dart';
 import '../../../../shared/widgets/glassmorphism_card.dart';
+import '../providers/opportunities_provider.dart';
 
-class OpportunityListScreen extends StatefulWidget {
+class OpportunityListScreen extends ConsumerStatefulWidget {
   const OpportunityListScreen({super.key});
   @override
-  State<OpportunityListScreen> createState() => _OpportunityListScreenState();
+  ConsumerState<OpportunityListScreen> createState() => _OpportunityListScreenState();
 }
 
-class _OpportunityListScreenState extends State<OpportunityListScreen> {
+class _OpportunityListScreenState extends ConsumerState<OpportunityListScreen> {
   String _selectedCategory = 'All';
-  String _searchQuery = '';
   bool _showEligibleOnly = true;
+
+  static const Map<String, String> _categoryToApi = {
+    'Scholarship': 'scholarship',
+    'Govt Job': 'government_job',
+    'Admission': 'admission',
+    'Fellowship': 'fellowship',
+    'Skill Training': 'skill_program',
+  };
 
   final List<String> _categories = [
     'All', 'Scholarship', 'Govt Job', 'Admission', 'Fellowship', 'Skill Training',
   ];
 
-  final List<Map<String, dynamic>> _mockOpps = [
-    {'title': 'PM Scholarship Scheme 2024', 'category': 'Scholarship', 'amount': '₹36,000', 'deadline': '15 Nov 2024', 'probability': 0.78, 'seats': 5000, 'state': 'All India', 'isNew': true, 'isEligible': true},
-    {'title': 'AICTE Pragati Scholarship for Girls', 'category': 'Scholarship', 'amount': '₹50,000', 'deadline': '8 Dec 2024', 'probability': 0.62, 'seats': 4000, 'state': 'All India', 'isNew': true, 'isEligible': true},
-    {'title': 'UP Mukhyamantri Fellowship', 'category': 'Fellowship', 'amount': '₹25,000/mo', 'deadline': '30 Nov 2024', 'probability': 0.85, 'seats': 200, 'state': 'Uttar Pradesh', 'isNew': false, 'isEligible': true},
-    {'title': 'UPSC CSE 2025', 'category': 'Govt Job', 'amount': 'Grade A', 'deadline': '10 Jan 2025', 'probability': 0.22, 'seats': 1105, 'state': 'All India', 'isNew': false, 'isEligible': false},
-    {'title': 'NSP Post-Matric Scholarship', 'category': 'Scholarship', 'amount': '₹10,000', 'deadline': '31 Oct 2024', 'probability': 0.91, 'seats': 50000, 'state': 'All India', 'isNew': false, 'isEligible': true},
-  ];
-
   @override
   Widget build(BuildContext context) {
-    final filtered = _mockOpps.where((o) {
-      if (_showEligibleOnly && !(o['isEligible'] as bool)) return false;
-      if (_selectedCategory != 'All' && o['category'] != _selectedCategory) return false;
-      if (_searchQuery.isNotEmpty &&
-          !o['title'].toString().toLowerCase().contains(_searchQuery.toLowerCase())) return false;
-      return true;
-    }).toList();
+    final filter = ref.watch(opportunityFilterProvider);
+    final opportunitiesAsync = ref.watch(opportunitiesProvider);
 
     final size = MediaQuery.of(context).size;
     final isWide = size.width > 900;
@@ -55,7 +52,10 @@ class _OpportunityListScreenState extends State<OpportunityListScreen> {
                   Text('Discover Opportunities', style: AppTextStyles.headlineLarge)
                       .animate().fadeIn().slideX(begin: -0.2),
                   Text(
-                    '${filtered.length} matching your profile • Updated 5 min ago',
+                    opportunitiesAsync.maybeWhen(
+                      data: (list) => '${list.length} matching your profile',
+                      orElse: () => 'Loading…',
+                    ),
                     style: AppTextStyles.bodyMedium,
                   ).animate().fadeIn(delay: 100.ms),
                 ],
@@ -66,7 +66,8 @@ class _OpportunityListScreenState extends State<OpportunityListScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
               child: TextField(
-                onChanged: (v) => setState(() => _searchQuery = v),
+                onChanged: (v) => ref.read(opportunityFilterProvider.notifier).state =
+                    filter.copyWith(searchQuery: v),
                 style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
                 decoration: InputDecoration(
                   hintText: '🔍  Search scholarships, jobs, admissions...',
@@ -80,7 +81,11 @@ class _OpportunityListScreenState extends State<OpportunityListScreen> {
                           color: _showEligibleOnly ? AppColors.success : AppColors.textMuted,
                         ),
                         tooltip: 'Eligible Only',
-                        onPressed: () => setState(() => _showEligibleOnly = !_showEligibleOnly),
+                        onPressed: () {
+                          setState(() => _showEligibleOnly = !_showEligibleOnly);
+                          ref.read(opportunityFilterProvider.notifier).state =
+                              filter.copyWith(eligibleOnly: _showEligibleOnly);
+                        },
                       ),
                       IconButton(
                         icon: const Icon(Icons.tune_outlined, color: AppColors.textMuted),
@@ -105,7 +110,11 @@ class _OpportunityListScreenState extends State<OpportunityListScreen> {
                   child: FilterChip(
                     label: Text(cat),
                     selected: _selectedCategory == cat,
-                    onSelected: (_) => setState(() => _selectedCategory = cat),
+                    onSelected: (_) {
+                      setState(() => _selectedCategory = cat);
+                      ref.read(opportunityFilterProvider.notifier).state =
+                          filter.copyWith(category: _categoryToApi[cat]);
+                    },
                     selectedColor: AppColors.primary.withOpacity(0.3),
                     checkmarkColor: AppColors.primaryLight,
                     side: BorderSide(
@@ -122,11 +131,17 @@ class _OpportunityListScreenState extends State<OpportunityListScreen> {
 
             // Results
             Expanded(
-              child: filtered.isEmpty
-                  ? _EmptyState(showEligibleOnly: _showEligibleOnly)
-                  : isWide
-                      ? _GridView(opportunities: filtered)
-                      : _ListView(opportunities: filtered),
+              child: opportunitiesAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(
+                  child: Text('Failed to load opportunities: $e', style: AppTextStyles.bodyMedium),
+                ),
+                data: (opportunities) => opportunities.isEmpty
+                    ? _EmptyState(showEligibleOnly: _showEligibleOnly)
+                    : isWide
+                        ? _GridView(opportunities: opportunities)
+                        : _ListView(opportunities: opportunities),
+              ),
             ),
           ],
         ),
@@ -136,7 +151,7 @@ class _OpportunityListScreenState extends State<OpportunityListScreen> {
 }
 
 class _ListView extends StatelessWidget {
-  final List<Map<String, dynamic>> opportunities;
+  final List<OpportunityModel> opportunities;
   const _ListView({required this.opportunities});
 
   @override
@@ -154,7 +169,7 @@ class _ListView extends StatelessWidget {
 }
 
 class _GridView extends StatelessWidget {
-  final List<Map<String, dynamic>> opportunities;
+  final List<OpportunityModel> opportunities;
   const _GridView({required this.opportunities});
 
   @override
@@ -174,7 +189,7 @@ class _GridView extends StatelessWidget {
 }
 
 class _OpportunityCard extends StatefulWidget {
-  final Map<String, dynamic> data;
+  final OpportunityModel data;
   final int index;
   const _OpportunityCard({required this.data, required this.index});
 
@@ -187,20 +202,19 @@ class _OpportunityCardState extends State<_OpportunityCard> {
 
   @override
   Widget build(BuildContext context) {
-    final prob = widget.data['probability'] as double;
-    final isEligible = widget.data['isEligible'] as bool;
+    final o = widget.data;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: () => context.go('/opportunities/mock-id'),
+        onTap: () => context.go('/opportunities/${o.id}'),
         child: AnimatedContainer(
           duration: AppDurations.fast,
           transform: Matrix4.translationValues(0, _isHovered ? -4 : 0, 0),
           child: GlassCard(
-            borderColor: isEligible ? AppColors.success : null,
+            borderColor: o.isVerified ? AppColors.success : null,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -214,31 +228,18 @@ class _OpportunityCardState extends State<_OpportunityCard> {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        widget.data['category'],
+                        o.categoryLabel,
                         style: AppTextStyles.caption.copyWith(color: AppColors.primaryLight),
                       ),
                     ),
-                    if (widget.data['isNew'] == true) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(colors: AppColors.goldGradient),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text('NEW', style: AppTextStyles.caption.copyWith(
-                          color: Colors.white, fontWeight: FontWeight.w700, fontSize: 10,
-                        )),
-                      ),
-                    ],
                     const Spacer(),
-                    if (isEligible)
+                    if (o.isVerified)
                       const Icon(Icons.verified, color: AppColors.success, size: 18),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  widget.data['title'],
+                  o.title,
                   style: AppTextStyles.titleMedium,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -247,47 +248,33 @@ class _OpportunityCardState extends State<_OpportunityCard> {
                 Row(
                   children: [
                     Text(
-                      widget.data['amount'],
+                      o.amountDisplay,
                       style: AppTextStyles.bodyMedium.copyWith(
                         color: AppColors.success, fontWeight: FontWeight.w700,
                       ),
                     ),
-                    Text(' · ${widget.data['state']}', style: AppTextStyles.caption),
+                    if (o.state != null) Text(' · ${o.state}', style: AppTextStyles.caption),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Row(
                   children: [
-                    // Deadline
                     Row(
                       children: [
                         const Icon(Icons.schedule, size: 14, color: AppColors.textMuted),
                         const SizedBox(width: 4),
-                        Text(widget.data['deadline'], style: AppTextStyles.caption),
+                        Text(o.deadline ?? 'No deadline', style: AppTextStyles.caption),
                       ],
                     ),
                     const Spacer(),
-                    // Success probability
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _probColor(prob).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(20),
+                    if (o.issuingAuthority != null)
+                      Flexible(
+                        child: Text(
+                          o.issuingAuthority!,
+                          style: AppTextStyles.caption,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.trending_up, size: 12, color: _probColor(prob)),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${(prob * 100).toInt()}% success',
-                            style: AppTextStyles.caption.copyWith(
-                              color: _probColor(prob), fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
               ],
@@ -296,12 +283,6 @@ class _OpportunityCardState extends State<_OpportunityCard> {
         ),
       ),
     ).animate().fadeIn(delay: Duration(milliseconds: widget.index * 80)).slideY(begin: 0.2);
-  }
-
-  Color _probColor(double p) {
-    if (p >= 0.7) return AppColors.success;
-    if (p >= 0.4) return AppColors.warning;
-    return AppColors.error;
   }
 }
 

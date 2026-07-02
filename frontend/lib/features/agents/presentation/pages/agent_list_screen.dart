@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/glassmorphism_card.dart';
+import '../providers/agent_provider.dart';
 
-class AgentListScreen extends StatelessWidget {
+class AgentListScreen extends ConsumerWidget {
   const AgentListScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final agents = [
-      {'name': 'Rahul Verma', 'city': 'Lucknow, UP', 'rating': 4.9, 'sessions': 342, 'languages': ['Hindi', 'English'], 'speciality': 'Scholarships & Admissions', 'price': '₹149/session', 'badge': 'Platinum'},
-      {'name': 'Priya Singh', 'city': 'Varanasi, UP', 'rating': 4.7, 'sessions': 218, 'languages': ['Hindi', 'Bhojpuri'], 'speciality': 'Government Jobs', 'price': '₹99/session', 'badge': 'Gold'},
-      {'name': 'Suresh Patel', 'city': 'Patna, Bihar', 'rating': 4.8, 'sessions': 507, 'languages': ['Hindi', 'Maithili'], 'speciality': 'UPSC & State PSC', 'price': '₹199/session', 'badge': 'Platinum'},
-    ];
+  Widget build(BuildContext context, WidgetRef ref) {
+    final agentsAsync = ref.watch(agentListProvider);
 
     return Scaffold(
       backgroundColor: AppColors.bgDark,
@@ -31,11 +30,24 @@ class AgentListScreen extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                itemCount: agents.length,
-                separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
-                itemBuilder: (context, i) => _AgentCard(agent: agents[i], index: i),
+              child: agentsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(
+                  child: Text('Failed to load agents: $e', style: AppTextStyles.bodyMedium),
+                ),
+                data: (agents) {
+                  if (agents.isEmpty) {
+                    return Center(
+                      child: Text('No verified agents available yet.', style: AppTextStyles.bodyMedium),
+                    );
+                  }
+                  return ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                    itemCount: agents.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
+                    itemBuilder: (context, i) => _AgentCard(agent: agents[i], index: i),
+                  );
+                },
               ),
             ),
           ],
@@ -45,22 +57,110 @@ class AgentListScreen extends StatelessWidget {
   }
 }
 
-class _AgentCard extends StatelessWidget {
+class _AgentCard extends ConsumerWidget {
   final Map<String, dynamic> agent;
   final int index;
   const _AgentCard({required this.agent, required this.index});
 
-  Color get _badgeColor {
-    switch (agent['badge']) {
-      case 'Platinum': return const Color(0xFFE5E4E2);
-      case 'Gold': return AppColors.trustGold;
-      case 'Silver': return AppColors.trustSilver;
-      default: return AppColors.trustBronze;
-    }
+  Color _badgeColor(int totalSessions) {
+    if (totalSessions >= 400) return const Color(0xFFE5E4E2);
+    if (totalSessions >= 150) return AppColors.trustGold;
+    if (totalSessions >= 50) return AppColors.trustSilver;
+    return AppColors.trustBronze;
+  }
+
+  String _badgeLabel(int totalSessions) {
+    if (totalSessions >= 400) return 'Platinum';
+    if (totalSessions >= 150) return 'Gold';
+    if (totalSessions >= 50) return 'Silver';
+    return 'Bronze';
+  }
+
+  Future<void> _showBookingDialog(BuildContext context, WidgetRef ref) async {
+    final issueController = TextEditingController();
+    String sessionType = 'video_call';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Book session with ${agent['full_name']}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DropdownButton<String>(
+                value: sessionType,
+                isExpanded: true,
+                items: const [
+                  DropdownMenuItem(value: 'video_call', child: Text('Video Call')),
+                  DropdownMenuItem(value: 'phone_call', child: Text('Phone Call')),
+                  DropdownMenuItem(value: 'in_person', child: Text('In Person')),
+                  DropdownMenuItem(value: 'document_pickup', child: Text('Document Pickup')),
+                ],
+                onChanged: (v) => setState(() => sessionType = v ?? sessionType),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: issueController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'Describe what you need help with (min 10 characters)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: issueController.text.trim().length >= 10
+                  ? () => Navigator.pop(context, true)
+                  : null,
+              child: const Text('Book'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    await ref.read(sessionBookingProvider.notifier).book(
+      agentId: agent['id'].toString(),
+      sessionType: sessionType,
+      scheduledAt: DateTime.now().add(const Duration(hours: 2)),
+      issueDescription: issueController.text.trim(),
+    );
+
+    final result = ref.read(sessionBookingProvider);
+    if (!context.mounted) return;
+    result.when(
+      data: (data) {
+        if (data != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data['message']?.toString() ?? 'Session booked')),
+          );
+        }
+      },
+      error: (e, _) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Booking failed: $e')),
+      ),
+      loading: () {},
+    );
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final name = agent['full_name']?.toString() ?? 'Agent';
+    final rating = (agent['average_rating'] as num?)?.toDouble() ?? 0.0;
+    final totalSessions = (agent['total_sessions'] as num?)?.toInt() ?? 0;
+    final languages = (agent['languages'] as List?)?.cast<String>() ?? [];
+    final specializations = (agent['specializations'] as List?)?.cast<String>() ?? [];
+    final districts = (agent['districts_covered'] as List?)?.cast<String>() ?? [];
+    final fee = (agent['fee_per_session'] as num?)?.toInt();
+    final badgeColor = _badgeColor(totalSessions);
+
     return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,7 +171,7 @@ class _AgentCard extends StatelessWidget {
                 radius: 28,
                 backgroundColor: AppColors.primary.withOpacity(0.2),
                 child: Text(
-                  (agent['name'] as String).substring(0, 1),
+                  name.isNotEmpty ? name.substring(0, 1) : '?',
                   style: AppTextStyles.titleLarge.copyWith(color: AppColors.primaryLight),
                 ),
               ),
@@ -82,20 +182,21 @@ class _AgentCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text(agent['name'], style: AppTextStyles.titleMedium),
+                        Text(name, style: AppTextStyles.titleMedium),
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: _badgeColor.withOpacity(0.15),
+                            color: badgeColor.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: _badgeColor.withOpacity(0.5)),
+                            border: Border.all(color: badgeColor.withOpacity(0.5)),
                           ),
-                          child: Text(agent['badge'], style: AppTextStyles.caption.copyWith(color: _badgeColor)),
+                          child: Text(_badgeLabel(totalSessions), style: AppTextStyles.caption.copyWith(color: badgeColor)),
                         ),
                       ],
                     ),
-                    Text(agent['city'], style: AppTextStyles.caption),
+                    if (districts.isNotEmpty)
+                      Text(districts.join(', '), style: AppTextStyles.caption),
                   ],
                 ),
               ),
@@ -106,20 +207,21 @@ class _AgentCard extends StatelessWidget {
                     children: [
                       const Icon(Icons.star_rounded, color: AppColors.accent, size: 16),
                       const SizedBox(width: 4),
-                      Text(agent['rating'].toString(), style: AppTextStyles.bodyMedium.copyWith(color: AppColors.accent)),
+                      Text(rating.toStringAsFixed(1), style: AppTextStyles.bodyMedium.copyWith(color: AppColors.accent)),
                     ],
                   ),
-                  Text('${agent['sessions']} sessions', style: AppTextStyles.caption),
+                  Text('$totalSessions sessions', style: AppTextStyles.caption),
                 ],
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          Text(agent['speciality'], style: AppTextStyles.bodyMedium.copyWith(color: AppColors.primaryLight)),
+          if (specializations.isNotEmpty)
+            Text(specializations.join(', '), style: AppTextStyles.bodyMedium.copyWith(color: AppColors.primaryLight)),
           const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
-              ...(agent['languages'] as List<String>).map((lang) => Padding(
+              ...languages.map((lang) => Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -131,16 +233,17 @@ class _AgentCard extends StatelessWidget {
                 ),
               )),
               const Spacer(),
-              Text(agent['price'], style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.success, fontWeight: FontWeight.w700,
-              )),
+              if (fee != null)
+                Text('₹$fee/session', style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.success, fontWeight: FontWeight.w700,
+                )),
             ],
           ),
           const SizedBox(height: AppSpacing.md),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () {},
+              onPressed: () => _showBookingDialog(context, ref),
               icon: const Icon(Icons.video_call_outlined, size: 18),
               label: const Text('Book Session'),
             ),

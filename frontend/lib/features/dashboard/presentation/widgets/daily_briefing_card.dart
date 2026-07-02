@@ -1,14 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:animated_text_kit/animated_text_kit.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/glassmorphism_card.dart';
+import '../providers/dashboard_provider.dart';
 
-class DailyBriefingCard extends StatelessWidget {
+class DailyBriefingCard extends ConsumerWidget {
   const DailyBriefingCard({super.key});
 
+  String _briefingText(Map<String, dynamic> data) {
+    if (data['raw'] != null) return data['raw'].toString();
+    final parts = <String>[];
+    if (data['insight'] != null) parts.add(data['insight'].toString());
+    if (data['daily_action'] != null) parts.add(data['daily_action'].toString());
+    if (parts.isEmpty) return 'No briefing available right now.';
+    return parts.join(' ');
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final briefingAsync = ref.watch(dailyBriefingProvider);
+
     return GradientCard(
       gradient: const [Color(0xFF1E1B4B), Color(0xFF312E81)],
       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -45,34 +58,32 @@ class DailyBriefingCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Spacer(),
-              Text(
-                'Just now',
-                style: AppTextStyles.caption,
-              ),
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          AnimatedTextKit(
-            animatedTexts: [
-              TypewriterAnimatedText(
-                'Good morning, Anshu! The NSP Scholarship portal closes in 3 days. Your success probability is 78%. Take 20 minutes today to complete your income certificate upload and boost it to 86%.',
-                textStyle: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.textPrimary,
-                  height: 1.6,
-                ),
-                speed: const Duration(milliseconds: 18),
+          briefingAsync.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: SizedBox(
+                height: 20, width: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
-            ],
-            totalRepeatCount: 1,
-            displayFullTextOnTap: true,
+            ),
+            error: (e, _) => Text(
+              'Your Career Twin needs an AI key configured on the backend to generate briefings. Chat with it directly instead.',
+              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary, height: 1.5),
+            ),
+            data: (data) => Text(
+              _briefingText(data),
+              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary, height: 1.6),
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
           Row(
             children: [
-              _actionChip('📄 Upload Docs', () {}),
+              _actionChip('📄 Upload Docs', () => context.go('/documents')),
               const SizedBox(width: 8),
-              _actionChip('📊 View Report', () {}),
+              _actionChip('💬 Ask Twin', () => context.go('/career-twin')),
             ],
           ),
         ],
